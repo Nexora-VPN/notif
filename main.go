@@ -1,8 +1,9 @@
 // Command notif is Nexora Notif, the official open addon that tells a
 // panel's users about their accounts (nexora-panel docs/phase-g.md, track
-// GN). This is its skeleton: the configuration, the database (SQLite, or
-// PostgreSQL by the install's choice), its own admins with a TOTP second
-// factor, the manifest, the claim-code registration and the health path.
+// GN): the configuration, the database (SQLite, or PostgreSQL by the
+// install's choice), its own admins with a TOTP second factor, the manifest,
+// the claim-code registration and the health path, the copy of the panel's
+// accounts (internal/users) and the outbox that sends (internal/outbox).
 //
 //	notif                                    serve (the default)
 //	notif admin reset-password -user U -pass P
@@ -104,6 +105,9 @@ func run() error {
 		}
 	}
 	app := api.New(gdb, a, cfg, a.Manifest().Version, spa)
+	bg, stopBg := context.WithCancel(context.Background())
+	defer stopBg()
+	go app.Run(bg)
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: app.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	log.Printf("nexora notif %s on :%s (%s)", a.Manifest().Version, cfg.Port, cfg.Driver)
 	errs := make(chan error, 1)

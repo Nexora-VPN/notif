@@ -8,9 +8,11 @@ Each notice is written once and goes through the first of the user's
 channels that reaches them, in the order the admin sets, so a paid SMS is
 sent only when the free channels could not deliver.
 
-> **Status: in development.** This is the skeleton — registration with a
-> panel, the admin web with two-factor sign-in, SQLite or PostgreSQL. The
-> messengers, notices and messages arrive in the next versions.
+> **Status: in development.** In place: registration with a panel, the
+> admin web with two-factor sign-in, SQLite or PostgreSQL, the delivery core
+> (channels in a fall-back order, retries, quiet hours, a rate per channel,
+> the delivery log) and the generic HTTP channel. The messengers, the
+> account's notices and the admin's own messages arrive in the next versions.
 
 Notif is separate software, as every Nexora addon is: its own container or
 service and its own database, talking to the panel over the network only,

@@ -1,0 +1,127 @@
+package model
+
+// The notifier's own records: its copy of the panel's accounts, the
+// channels in the admin's order, and the outbox of deliveries with every
+// attempt each one made.
+
+// User is Notif's copy of one panel account — only what a notice needs.
+// The panel stays the record: the copy is refreshed from it (internal/users)
+// and every messenger link is read from Contact (P36 (iii)), never kept here.
+type User struct {
+	ID      uint                    `json:"id" gorm:"primaryKey;autoIncrement:false"`
+	Name    string                  `json:"name" gorm:"index;not null"`
+	Contact JSON[map[string]string] `json:"contact"`
+	Enable  bool                    `json:"enable" gorm:"not null"`
+	Expiry  int64                   `json:"expiry" gorm:"not null;default:0"`
+	Volume  int64                   `json:"volume" gorm:"not null;default:0"`
+	Used    int64                   `json:"used" gorm:"not null;default:0"`
+	Group   string                  `json:"group" gorm:"not null;default:''"`
+	AdminID uint                    `json:"adminId" gorm:"index;not null;default:0"`
+	SubURL  string                  `json:"subUrl" gorm:"not null;default:''"`
+	// UpdatedAt is the panel's; SeenAt is when this copy was last refreshed;
+	// GoneAt is when the panel said the account was deleted.
+	UpdatedAt int64 `json:"updatedAt" gorm:"not null;default:0"`
+	SeenAt    int64 `json:"seenAt" gorm:"not null;default:0"`
+	GoneAt    int64 `json:"goneAt" gorm:"index;not null;default:0"`
+}
+
+// Channel is one configured way to reach users: a bot, an SMS provider, a
+// mail server, the generic HTTP channel. Position is the admin's fall-back
+// order, lowest first. Config holds the kind's own settings, secrets among
+// them, and is never sent back to the browser whole (internal/channel).
+type Channel struct {
+	ID       uint                    `json:"id" gorm:"primaryKey"`
+	Kind     string                  `json:"kind" gorm:"not null"`
+	Name     string                  `json:"name" gorm:"not null"`
+	Enabled  bool                    `json:"enabled" gorm:"not null"`
+	Position int                     `json:"position" gorm:"index;not null;default:0"`
+	Config   JSON[map[string]string] `json:"-"`
+	// PerMinute is the most this channel sends in a minute; 0 is the kind's
+	// default.
+	PerMinute int   `json:"perMinute" gorm:"not null;default:0"`
+	CreatedAt int64 `json:"createdAt" gorm:"autoCreateTime"`
+}
+
+// The states of a delivery.
+const (
+	// Queued waits for its NextAt; Held is a queued one waiting out the quiet
+	// hours; Sending is in a worker's hands.
+	DeliveryQueued  = "queued"
+	DeliveryHeld    = "held"
+	DeliverySending = "sending"
+	// Sent went out through one channel. Failed reached nobody: every
+	// channel was tried, or the user has none. Cancelled was stopped by the
+	// admin. Unknown was being sent when Notif stopped: it may have gone,
+	// so it is never sent again — a restart sends nobody anything twice.
+	DeliverySent      = "sent"
+	DeliveryFailed    = "failed"
+	DeliveryCancelled = "cancelled"
+	DeliveryUnknown   = "unknown"
+)
+
+// Delivery is one notice to one user: written once, then handed to the
+// user's channels in the admin's order until one delivers it.
+type Delivery struct {
+	ID uint `json:"id" gorm:"primaryKey"`
+	// Key is what makes a notice once-only: the occasion and the user (an
+	// event's id, an expiry date crossed, a send's id). A second notice with
+	// the same key is not queued.
+	Key    string `json:"key" gorm:"uniqueIndex;not null"`
+	UserID uint   `json:"userId" gorm:"index;not null"`
+	// Kind names the notice ("renewed", "expiring", "custom", "test"); its
+	// text is rendered at send time for the channel and the language.
+	Kind string                  `json:"kind" gorm:"index;not null"`
+	Vars JSON[map[string]string] `json:"vars"`
+	// Title and Body are the admin's own words for a custom message.
+	Title string `json:"title" gorm:"not null;default:''"`
+	Body  string `json:"body" gorm:"type:text;not null;default:''"`
+	// Urgent goes out during the quiet hours too.
+	Urgent bool `json:"urgent" gorm:"not null;default:false"`
+	// OwnerID is the admin it is sent for — 0, the panel, for now (P35).
+	OwnerID uint `json:"ownerId" gorm:"index;not null;default:0"`
+	// SendID is the admin's message this delivery belongs to, 0 for none.
+	SendID uint `json:"sendId" gorm:"index;not null;default:0"`
+	// Only, when set, is the one channel to use — a test of that channel —
+	// with no fall-back.
+	Only   uint   `json:"only" gorm:"not null;default:0"`
+	Status string `json:"status" gorm:"index;not null"`
+	NextAt int64  `json:"nextAt" gorm:"index;not null;default:0"`
+	// ChannelID is the channel that delivered it, or the last one tried.
+	// Where it stands in the fall-back order is read from its attempts.
+	ChannelID uint   `json:"channelId" gorm:"not null;default:0"`
+	Error     string `json:"error" gorm:"type:text;not null;default:''"`
+	CreatedAt int64  `json:"createdAt" gorm:"index;autoCreateTime"`
+	SentAt    int64  `json:"sentAt" gorm:"not null;default:0"`
+}
+
+// The outcomes of one attempt.
+const (
+	AttemptStarted   = "started"
+	AttemptSent      = "sent"
+	AttemptNoAddress = "no_address"
+	AttemptRefused   = "refused"
+	AttemptError     = "error"
+)
+
+// Attempt is one channel's go at a delivery — the log the admin reads.
+type Attempt struct {
+	ID         uint   `json:"id" gorm:"primaryKey"`
+	DeliveryID uint   `json:"deliveryId" gorm:"index;not null"`
+	ChannelID  uint   `json:"channelId" gorm:"not null"`
+	At         int64  `json:"at" gorm:"not null"`
+	Outcome    string `json:"outcome" gorm:"not null"`
+	Detail     string `json:"detail" gorm:"type:text;not null;default:''"`
+}
+
+// Send is an admin's own message to one user or a group (GN-S5): its
+// deliveries carry its id.
+type Send struct {
+	ID          uint                    `json:"id" gorm:"primaryKey"`
+	OwnerID     uint                    `json:"ownerId" gorm:"index;not null;default:0"`
+	Title       string                  `json:"title" gorm:"not null;default:''"`
+	Body        string                  `json:"body" gorm:"type:text;not null"`
+	Filter      JSON[map[string]string] `json:"filter"`
+	Total       int                     `json:"total" gorm:"not null;default:0"`
+	CreatedAt   int64                   `json:"createdAt" gorm:"autoCreateTime"`
+	CancelledAt int64                   `json:"cancelledAt" gorm:"not null;default:0"`
+}

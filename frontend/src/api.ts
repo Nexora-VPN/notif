@@ -54,6 +54,85 @@ export interface Status {
   panelError?: string
 }
 
+export interface Field {
+  key: string
+  secret?: boolean
+  required?: boolean
+  multiline?: boolean
+  default?: string
+}
+
+export interface Kind {
+  name: string
+  fields: Field[]
+  perMinute: number
+}
+
+export interface Channel {
+  id: number
+  kind: string
+  name: string
+  enabled: boolean
+  position: number
+  perMinute: number
+  config: Record<string, string>
+}
+
+export interface ChannelBody {
+  kind?: string
+  name: string
+  enabled: boolean
+  perMinute: number
+  config: Record<string, string>
+}
+
+export interface Attempt {
+  id: number
+  channelId: number
+  channelName: string
+  at: number
+  outcome: string
+  detail: string
+}
+
+export interface Delivery {
+  id: number
+  key: string
+  userId: number
+  userName: string
+  kind: string
+  title: string
+  body: string
+  urgent: boolean
+  status: string
+  nextAt: number
+  channelId: number
+  channelName: string
+  error: string
+  createdAt: number
+  sentAt: number
+  attempts?: Attempt[]
+}
+
+export interface DeliverySettings {
+  timeZone: string
+  quietEnabled: boolean
+  quietFrom: string
+  quietTo: string
+  language: string
+  retentionDays: number
+}
+
+export interface Summary {
+  today: Record<string, number>
+  byChannel: { channelId: number; name: string; sent: number }[] | null
+  waiting: number
+  held: number
+  users: number
+  channels: number
+  quiet: boolean
+}
+
 export const api = {
   login: (username: string, password: string) =>
     call<Me | { mfa: true; token: string }>('POST', '/login', { username, password }),
@@ -66,4 +145,24 @@ export const api = {
   totpConfirm: (code: string) => call<void>('POST', '/me/2fa/totp/confirm', { code }),
   totpDisable: (password: string) => call<void>('DELETE', '/me/2fa', { password }),
   status: () => call<Status>('GET', '/status'),
+  summary: () => call<Summary>('GET', '/summary'),
+  kinds: () => call<Kind[]>('GET', '/channel-kinds'),
+  channels: () => call<Channel[]>('GET', '/channels'),
+  createChannel: (b: ChannelBody) => call<Channel>('POST', '/channels', b),
+  updateChannel: (id: number, b: ChannelBody) => call<Channel>('PUT', '/channels/' + id, b),
+  deleteChannel: (id: number) => call<void>('DELETE', '/channels/' + id),
+  orderChannels: (ids: number[]) => call<void>('PUT', '/channels/order', { ids }),
+  test: (user: string, channel = 0, quiet = false) =>
+    call<Delivery>('POST', '/test', { user, channel, quiet }),
+  deliveries: (q: { status?: string; user?: string; limit: number; offset: number }) => {
+    const p = new URLSearchParams({ limit: String(q.limit), offset: String(q.offset) })
+    if (q.status) p.set('status', q.status)
+    if (q.user) p.set('user', q.user)
+    return call<{ items: Delivery[]; total: number }>('GET', '/deliveries?' + p.toString())
+  },
+  delivery: (id: number) => call<Delivery>('GET', '/deliveries/' + id),
+  cancelDelivery: (id: number) => call<void>('POST', '/deliveries/' + id + '/cancel'),
+  deliverySettings: () =>
+    call<{ settings: DeliverySettings; serverZone: string }>('GET', '/settings/delivery'),
+  saveDeliverySettings: (d: DeliverySettings) => call<void>('PUT', '/settings/delivery', d),
 }

@@ -4,7 +4,7 @@ go 1.27.1
 
 require (
 	github.com/glebarez/sqlite v1.11.0
-	github.com/nexora-vpn/addon-kit v0.1.2
+	github.com/nexora-vpn/addon-kit v0.2.0
 	gorm.io/driver/postgres v1.6.3
 	gorm.io/gorm v1.31.2
 )
@@ -31,6 +31,3 @@ require (
 	modernc.org/memory v1.5.0 // indirect
 	modernc.org/sqlite v1.23.1 // indirect
 )
-
-// Until addon-kit's next tag carries the auth and telegram packages.
-replace github.com/nexora-vpn/addon-kit => ../addon-kit

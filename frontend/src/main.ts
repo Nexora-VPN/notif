@@ -30,6 +30,12 @@ const Notif = definePreset(Aura, {
   },
 })
 
+// The admin follows the system's light or dark setting.
+const dark = window.matchMedia('(prefers-color-scheme: dark)')
+const applyDark = () => document.documentElement.classList.toggle('dark', dark.matches)
+applyDark()
+dark.addEventListener('change', applyDark)
+
 createApp(App)
   .use(PrimeVue, {
     theme: { preset: Notif, options: { darkModeSelector: '.dark' } },

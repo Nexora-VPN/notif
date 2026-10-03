@@ -41,4 +41,15 @@ type Panel struct {
 }
 
 // All is every table, for the migration.
-func All() []any { return []any{&Admin{}, &Session{}, &Panel{}} }
+func All() []any {
+	return []any{
+		&Admin{}, &Session{}, &Panel{}, &Setting{},
+		&User{}, &Channel{}, &Delivery{}, &Attempt{}, &Send{},
+	}
+}
+
+// Setting is one named JSON document (internal/settings).
+type Setting struct {
+	Key   string `gorm:"primaryKey"`
+	Value string `gorm:"type:text;not null"`
+}

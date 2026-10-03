@@ -32,7 +32,7 @@ func newServer(t *testing.T) (*Server, *gorm.DB, http.Handler) {
 		t.Fatal(err)
 	}
 	if cfg.Driver == config.DriverPostgres {
-		gdb.Exec("TRUNCATE admins, sessions, panels RESTART IDENTITY")
+		gdb.Exec("TRUNCATE admins, sessions, panels, settings, users, channels, deliveries, attempts, sends RESTART IDENTITY")
 	}
 	if _, err := admins.EnsureFirst(gdb, "admin", "correct horse"); err != nil {
 		t.Fatal(err)

@@ -4,6 +4,9 @@ import Login from './views/Login.vue'
 import Layout from './views/Layout.vue'
 import Dashboard from './views/Dashboard.vue'
 import Security from './views/Security.vue'
+import Channels from './views/Channels.vue'
+import Log from './views/Log.vue'
+import Settings from './views/Settings.vue'
 
 export const router = createRouter({
   // Relative to wherever Notif is served, the way its assets are.
@@ -15,6 +18,9 @@ export const router = createRouter({
       component: Layout,
       children: [
         { path: '', name: 'dashboard', component: Dashboard },
+        { path: 'channels', name: 'channels', component: Channels },
+        { path: 'log', name: 'log', component: Log },
+        { path: 'settings', name: 'settings', component: Settings },
         { path: 'security', name: 'security', component: Security },
       ],
     },

@@ -8,16 +8,21 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/nexora-vpn/addon-kit/addon"
 	"github.com/nexora-vpn/addon-kit/auth"
+	"github.com/nexora-vpn/addon-kit/panel"
 	"github.com/nexora-vpn/notif/internal/admins"
 	"github.com/nexora-vpn/notif/internal/config"
 	"github.com/nexora-vpn/notif/internal/model"
+	"github.com/nexora-vpn/notif/internal/outbox"
+	"github.com/nexora-vpn/notif/internal/users"
 	"gorm.io/gorm"
 )
 
@@ -33,6 +38,9 @@ type Server struct {
 	// logins locks out an address after five failed sign-ins in ten
 	// minutes.
 	logins *auth.Limiter
+	// outbox sends the deliveries; users keeps the copy of the accounts.
+	outbox *outbox.Outbox
+	users  *users.Sync
 
 	mu      sync.Mutex
 	pending map[string]pendingLogin // sign-in token → the admin waiting for a code
@@ -51,7 +59,14 @@ func New(gdb *gorm.DB, a *addon.Addon, cfg config.Config, version string, spa fs
 		db: gdb, addon: a, cfg: cfg, version: version, spa: spa,
 		logins:  auth.NewLimiter(5, 10*time.Minute),
 		pending: map[string]pendingLogin{}, enrol: map[uint]string{},
+		outbox: outbox.New(gdb),
 	}
+	s.users = &users.Sync{DB: gdb, Panel: func() users.Getter {
+		if c := s.panelClient(); c != nil {
+			return c
+		}
+		return nil
+	}}
 	a.OnSetup(s.registered)
 	a.OnEvent(s.event)
 	return s
@@ -68,11 +83,51 @@ func panelID(c addon.Credentials) string {
 
 func (s *Server) registered(c addon.Credentials) {
 	s.db.Save(&model.Panel{ID: panelID(c), URL: c.Panel.URL, Version: c.Panel.Version, RegisteredAt: time.Now().Unix()})
+	go func() {
+		if err := s.users.Full(context.Background()); err != nil {
+			log.Printf("users: the first read: %v", err)
+		}
+	}()
 }
 
-// event is the panel's events. Until GN-S4 only the goodbye is acted on:
-// the credentials are forgotten so Notif can be registered again.
+// panelClient is the registered panel's client, nil before registration.
+func (s *Server) panelClient() *panel.Client {
+	c := s.addon.Credentials()
+	if c == nil {
+		return nil
+	}
+	return &panel.Client{Base: c.Panel.URL, Token: c.Token}
+}
+
+func urlQuery(v string) string { return url.QueryEscape(v) }
+
+// Run starts the outbox and the copy of the accounts, and prunes the log
+// once a day, until ctx ends.
+func (s *Server) Run(ctx context.Context) {
+	go s.outbox.Run(ctx)
+	go s.users.Run(ctx)
+	day := time.NewTicker(24 * time.Hour)
+	defer day.Stop()
+	s.outbox.Prune()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-day.C:
+			s.outbox.Prune()
+		}
+	}
+}
+
+// event is the panel's events. A deleted account is marked gone; any other
+// account event refreshes the copy of that account (GN-S4 turns them into
+// notices); the goodbye forgets the credentials so Notif can be registered
+// again.
 func (s *Server) event(e addon.Event) {
+	if strings.HasPrefix(e.Event, "user.") {
+		s.userEvent(e)
+		return
+	}
 	if e.Event != "panel.addon_removed" {
 		return
 	}
@@ -95,6 +150,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/me/2fa/totp/confirm", s.signedIn(s.handleTOTPConfirm))
 	mux.HandleFunc("DELETE /api/me/2fa", s.signedIn(s.handleTOTPDisable))
 	mux.HandleFunc("GET /api/status", s.signedIn(s.handleStatus))
+	s.mountCore(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeErr(w, http.StatusNotFound, "no such API route")
 	})
@@ -191,4 +247,34 @@ func spaHandler(dist fs.FS) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 		_, _ = w.Write(index)
 	})
+}
+
+// userEvent keeps the copy in step with what an event says.
+func (s *Server) userEvent(e addon.Event) {
+	var data struct {
+		UserID uint   `json:"userId"`
+		Op     string `json:"op"`
+		IDs    []uint `json:"ids"`
+	}
+	_ = json.Unmarshal(e.Data, &data)
+	switch {
+	case e.Event == "user.deleted" && data.UserID != 0:
+		s.users.Gone(data.UserID)
+	case e.Event == "user.bulk" && data.Op == "delete":
+		for _, id := range data.IDs {
+			s.users.Gone(id)
+		}
+	case e.Event == "user.bulk" || e.Event == "user.generated":
+		go func() {
+			if err := s.users.Edits(context.Background()); err != nil {
+				log.Printf("users: after %s: %v", e.Event, err)
+			}
+		}()
+	case data.UserID != 0:
+		go func() {
+			if _, err := s.users.One(context.Background(), data.UserID); err != nil {
+				log.Printf("users: after %s: %v", e.Event, err)
+			}
+		}()
+	}
 }
