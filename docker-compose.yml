@@ -1,0 +1,27 @@
+# Notif's local stack, beside the panel's: built from this checkout, its data
+# in ./data. An install uses deploy/compose.yml and the published image.
+#
+#   cp .env.example .env            # once: the first admin's password, the claim code
+#   scripts/sign.sh -dev            # signed.json: the manifest with the development key
+#   docker compose up -d --build    # again after every change
+#
+# The development key is trusted only by a panel built with -tags addondev.
+# Notif's admin: http://localhost:8097. Registered from the local panel as
+# http://host.docker.internal:8097 with the claim code in .env.
+services:
+  notif:
+    build:
+      context: .
+      args:
+        VITE_PRIMEUI_LICENSE: ${VITE_PRIMEUI_LICENSE:-}
+    container_name: notif
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NEXORA_OPT_PORT: "8097"
+      NEXORA_MANIFEST_FILE: /run/nexora/manifest.json
+    ports:
+      - "8097:8097"
+    volumes:
+      - ./data:/data
+      - ./signed.json:/run/nexora/manifest.json:ro

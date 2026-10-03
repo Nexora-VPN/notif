@@ -1,0 +1,49 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: notif
+          POSTGRES_DB: notif
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go run mvdan.cc/gofumpt@latest -l . | tee /dev/stderr | (! read)
+      - name: tests on SQLite
+        run: go test -race -count=1 ./...
+      - name: tests on PostgreSQL
+        env:
+          NEXORA_TEST_POSTGRES_DSN: postgres://postgres:notif@localhost:5432/notif?sslmode=disable
+        run: go test -race -count=1 -p 1 ./...
+      - name: the manifest is one a panel accepts
+        run: go run github.com/nexora-vpn/addon-kit/cmd/nexora-addon check nexora-addon.json
+      - run: sh -n install.sh && sh -n scripts/sign.sh
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run fmt:check
+      - run: npm run lint
+      - run: npm run type-check
+      - run: npm run build

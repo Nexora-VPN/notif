@@ -1,0 +1,64 @@
+:root {
+  --notif-bg: #faf8f4;
+  --notif-surface: #ffffff;
+  --notif-border: #ebe5da;
+  --notif-text: #26221c;
+  --notif-muted: #756d61;
+  font-family:
+    Vazirmatn,
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    'Noto Sans',
+    'Noto Sans Arabic',
+    sans-serif;
+  color: var(--notif-text);
+  background: var(--notif-bg);
+}
+
+:root.dark {
+  --notif-bg: #16140f;
+  --notif-surface: #1f1c16;
+  --notif-border: #343026;
+  --notif-text: #ece6da;
+  --notif-muted: #a69d8e;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--notif-bg);
+}
+
+.muted {
+  color: var(--notif-muted);
+}
+
+.mono {
+  font-family: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.card {
+  background: var(--notif-surface);
+  border: 1px solid var(--notif-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field label {
+  font-size: 0.875rem;
+  color: var(--notif-muted);
+}

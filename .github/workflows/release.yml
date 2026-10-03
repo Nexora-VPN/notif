@@ -1,0 +1,70 @@
+# On a v* tag: the binaries the script install downloads, their checksums, the
+# release, and the image the docker install pulls. The manifest must name the
+# tag's version and carry Nexora's signature — signed on the owner's machine
+# (scripts/sign.sh) before the tag is pushed, since the signature covers the
+# version.
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+  packages: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: the manifest names this release and Nexora signed it
+        id: version
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          have="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' nexora-addon.json | head -n 1)"
+          [ "$want" = "$have" ] || { echo "nexora-addon.json says $have, the tag is $want"; exit 1; }
+          kit() { go run github.com/nexora-vpn/addon-kit/cmd/nexora-addon "$@"; }
+          kit check nexora-addon.json
+          [ "$(kit verify nexora-addon.json)" = "signed by: Nexora" ] || { echo "nexora-addon.json is not signed by Nexora: run scripts/sign.sh"; exit 1; }
+          echo "version=$want" >> "$GITHUB_OUTPUT"
+      - name: the admin web
+        working-directory: frontend
+        env:
+          VITE_PRIMEUI_LICENSE: ${{ secrets.VITE_PRIMEUI_LICENSE }}
+        run: npm ci --no-audit --no-fund && npm run build
+      - name: binaries
+        run: |
+          mkdir dist
+          for arch in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -ldflags "-s -w" -o notif .
+            tar -czf "dist/notif-linux-${arch}.tar.gz" notif
+          done
+          cp nexora-addon.json install.sh dist/
+          (cd dist && sha256sum * > SHA256SUMS)
+      - name: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            VITE_PRIMEUI_LICENSE=${{ secrets.VITE_PRIMEUI_LICENSE }}
+          tags: |
+            ghcr.io/nexora-vpn/notif:${{ steps.version.outputs.version }}
+            ghcr.io/nexora-vpn/notif:latest
