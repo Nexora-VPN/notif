@@ -47,14 +47,40 @@ func (s *Server) handleKinds(w http.ResponseWriter, _ *http.Request, _ model.Adm
 	writeJSON(w, http.StatusOK, channel.Kinds())
 }
 
-// channelView is a channel as the browser sees it: secrets masked.
+// channelView is a channel as the browser sees it: secrets masked, and how
+// much it sent today and this month — what an SMS provider bills.
 type channelView struct {
 	model.Channel
-	Config map[string]string `json:"config"`
+	Config    map[string]string `json:"config"`
+	SentToday int64             `json:"sentToday"`
+	SentMonth int64             `json:"sentMonth"`
 }
 
 func viewChannel(c model.Channel) channelView {
 	return channelView{Channel: c, Config: channel.Redact(c.Kind, c.Config.V)}
+}
+
+// sentCounts is each channel's sent attempts since midnight and since the
+// first of the month, in the delivery settings' zone.
+func (s *Server) sentCounts() (today, month map[uint]int64) {
+	cfg, _ := settings.LoadDelivery(s.db)
+	now := time.Now().In(cfg.Location())
+	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Unix()
+	first := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Unix()
+	count := func(since int64) map[uint]int64 {
+		var rows []struct {
+			ChannelID uint
+			N         int64
+		}
+		s.db.Model(&model.Attempt{}).Select("channel_id, COUNT(*) AS n").
+			Where("outcome = ? AND at >= ?", model.AttemptSent, since).Group("channel_id").Scan(&rows)
+		out := map[uint]int64{}
+		for _, r := range rows {
+			out[r.ChannelID] = r.N
+		}
+		return out
+	}
+	return count(day), count(first)
 }
 
 func (s *Server) channels() ([]model.Channel, error) {
@@ -69,9 +95,12 @@ func (s *Server) handleChannels(w http.ResponseWriter, _ *http.Request, _ model.
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	today, month := s.sentCounts()
 	out := make([]channelView, 0, len(chs))
 	for _, c := range chs {
-		out = append(out, viewChannel(c))
+		v := viewChannel(c)
+		v.SentToday, v.SentMonth = today[c.ID], month[c.ID]
+		out = append(out, v)
 	}
 	writeJSON(w, http.StatusOK, out)
 }

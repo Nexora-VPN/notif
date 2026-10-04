@@ -17,10 +17,14 @@ func (s *Server) mountUsers(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/users", s.signedIn(s.handleUsers))
 	mux.HandleFunc("GET /api/users/{id}", s.signedIn(s.handleUser))
 	mux.HandleFunc("POST /api/users/{id}/unlink", s.signedIn(s.handleUnlink))
+	mux.HandleFunc("POST /api/users/{id}/ntfy", s.signedIn(s.handleNtfy))
 }
 
 // reachKeys are the contact keys a channel reaches a user by.
-var reachKeys = []string{"telegram_id", "bale_id", "soroush_id", "rubika_id", "phone", "email"}
+var reachKeys = []string{"telegram_id", "bale_id", "soroush_id", "rubika_id", "phone", "email", "ntfy"}
+
+// linkKeys are the ones Notif writes and may take away.
+var linkKeys = []string{"telegram_id", "bale_id", "soroush_id", "rubika_id", "ntfy"}
 
 type userView struct {
 	ID      uint              `json:"id"`
@@ -113,7 +117,35 @@ func (s *Server) handleUser(w http.ResponseWriter, r *http.Request, _ model.Admi
 		}
 		bots = append(bots, b)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"user": viewUser(u, true), "code": code, "bots": bots})
+	// The ntfy channels: the address a user subscribes to, once the admin
+	// has turned ntfy on for them.
+	var feeds []map[string]any
+	for _, c := range chs {
+		if c.Kind == "ntfy" {
+			f := map[string]any{"channelId": c.ID, "name": c.Name, "server": channel.NtfyServer(c.Config.V)}
+			if topic := u.Contact.V["ntfy"]; topic != "" {
+				f["topic"] = topic
+				f["url"] = f["server"].(string) + "/" + topic
+			}
+			feeds = append(feeds, f)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"user": viewUser(u, true), "code": code, "bots": bots, "ntfy": feeds})
+}
+
+// handleNtfy turns ntfy on for a user: their topic, written to their card.
+func (s *Server) handleNtfy(w http.ResponseWriter, r *http.Request, _ model.Admin) {
+	id, err := pathID(r)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	topic := s.links.NtfyTopic(id)
+	if err := s.links.Set(r.Context(), id, "ntfy", topic); err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"topic": topic})
 }
 
 func (s *Server) handleUnlink(w http.ResponseWriter, r *http.Request, _ model.Admin) {
@@ -130,7 +162,7 @@ func (s *Server) handleUnlink(w http.ResponseWriter, r *http.Request, _ model.Ad
 		return
 	}
 	ok := false
-	for _, k := range []string{"telegram_id", "bale_id", "soroush_id", "rubika_id"} {
+	for _, k := range linkKeys {
 		ok = ok || k == b.Key
 	}
 	if !ok {

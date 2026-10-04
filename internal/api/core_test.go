@@ -26,7 +26,7 @@ func TestChannelsTheirOrderAndATest(t *testing.T) {
 	c := session(t, call(t, h, "POST", "/api/login", `{"username":"admin","password":"correct horse"}`))
 	gdb.Create(&model.User{ID: 7, Name: "ana", Contact: model.JSON[map[string]string]{V: map[string]string{"phone": "0912"}}})
 
-	w := call(t, h, "POST", "/api/channels", `{"kind":"http","name":"sms","enabled":true,"config":{"url":"`+stand.URL+`","headers":"X-Key: s3cret"}}`, c)
+	w := call(t, h, "POST", "/api/channels", `{"kind":"http","name":"sms","enabled":true,"config":{"url":"`+stand.URL+`","secret":"s3cret","headers":"X-Key: {{.Secret}}"}}`, c)
 	if w.Code != http.StatusCreated || strings.Contains(w.Body.String(), "s3cret") {
 		t.Fatalf("create: %d %s", w.Code, w.Body)
 	}
@@ -41,7 +41,7 @@ func TestChannelsTheirOrderAndATest(t *testing.T) {
 		t.Fatalf("order: %d %s", w.Code, w.Body)
 	}
 	// An edit that leaves the secret masked keeps it.
-	if w := call(t, h, "PUT", "/api/channels/1", `{"name":"sms","enabled":true,"perMinute":30,"config":{"url":"`+stand.URL+`","headers":"••••"}}`, c); w.Code != http.StatusOK {
+	if w := call(t, h, "PUT", "/api/channels/1", `{"name":"sms","enabled":true,"perMinute":30,"config":{"url":"`+stand.URL+`","secret":"••••","headers":"X-Key: {{.Secret}}"}}`, c); w.Code != http.StatusOK {
 		t.Fatalf("edit: %d %s", w.Code, w.Body)
 	}
 	var list []map[string]any
@@ -80,6 +80,15 @@ func TestChannelsTheirOrderAndATest(t *testing.T) {
 	// ana has no email: mail (first now) had no address, sms sent.
 	if len(one.Attempts) != 2 || one.Attempts[0].Outcome != "no_address" || one.Attempts[1].Outcome != "sent" {
 		t.Fatalf("attempts %+v", one.Attempts)
+	}
+	var counted []struct {
+		Name      string
+		SentToday int
+		SentMonth int
+	}
+	_ = json.Unmarshal(call(t, h, "GET", "/api/channels", "", c).Body.Bytes(), &counted)
+	if counted[1].Name != "sms" || counted[1].SentToday != 1 || counted[1].SentMonth != 1 || counted[0].SentToday != 0 {
+		t.Fatalf("counts %+v", counted)
 	}
 	var sum struct {
 		Today    map[string]int
@@ -128,6 +137,9 @@ func TestAnAccountsLinks(t *testing.T) {
 	_ = json.Unmarshal(call(t, h, "GET", "/api/users/9", "", c).Body.Bytes(), &one)
 	if one.Code != s.links.Code(9) || len(one.Bots) != 1 || one.Bots[0].URL != "https://t.me/notif_bot?start="+one.Code {
 		t.Fatalf("account %+v", one)
+	}
+	if a, b := s.links.NtfyTopic(9), s.links.NtfyTopic(10); a == b || a != s.links.NtfyTopic(9) || len(a) != 26 {
+		t.Fatalf("ntfy topics %q %q", a, b)
 	}
 	if w := call(t, h, "POST", "/api/users/9/unlink", `{"key":"phone"}`, c); w.Code != http.StatusBadRequest {
 		t.Fatalf("unlinking a phone: %d", w.Code)

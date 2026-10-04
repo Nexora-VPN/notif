@@ -93,7 +93,7 @@
     },
     {
       "scope": "users:write",
-      "purpose": "to keep in an account's contact card the Telegram, Bale, Soroush Plus and Rubika chats its user links, and take them away when the user stops a bot"
+      "purpose": "to keep in an account's contact card the Telegram, Bale, Soroush Plus and Rubika chats its user links and the ntfy topic the admin turns on, and take them away when the user stops a bot"
     }
   ],
   "events": [

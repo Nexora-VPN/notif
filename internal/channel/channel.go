@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -87,6 +88,18 @@ type Kind struct {
 	// New makes a sender from a channel's settings, refusing ones that
 	// cannot work.
 	New func(cfg map[string]string) (Sender, error) `json:"-"`
+	// Presets are ready settings for named providers.
+	Presets []Preset `json:"presets,omitempty"`
+}
+
+// Preset is a provider's settings for a kind, the admin's own values left
+// as placeholders in capitals.
+type Preset struct {
+	Name   string            `json:"name"`
+	Config map[string]string `json:"config"`
+	// Market is where the provider serves: "ir", "ru", "cn" or "" for
+	// anywhere (P40).
+	Market string `json:"market,omitempty"`
 }
 
 var kinds = map[string]Kind{}
@@ -175,4 +188,35 @@ func Merge(kind string, old, edit map[string]string) map[string]string {
 		}
 	}
 	return out
+}
+
+// Fill replaces {name}-style variables in s; an unknown one is left as
+// written. Notices and the providers' variable maps share it.
+func Fill(s string, vars map[string]string) string {
+	if !strings.Contains(s, "{") {
+		return s
+	}
+	pairs := make([]string, 0, len(vars)*2)
+	for k, v := range vars {
+		pairs = append(pairs, "{"+k+"}", v)
+	}
+	return strings.NewReplacer(pairs...).Replace(s)
+}
+
+// Assignments reads lines of name=value, skipping blank ones; a line with
+// no "=" is an error naming it.
+func Assignments(text string) ([][2]string, error) {
+	var out [][2]string
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		k, v, ok := strings.Cut(line, "=")
+		if !ok || strings.TrimSpace(k) == "" {
+			return nil, fmt.Errorf("%q is not name=value", line)
+		}
+		out = append(out, [2]string{strings.TrimSpace(k), strings.TrimSpace(v)})
+	}
+	return out, nil
 }

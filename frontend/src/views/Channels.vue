@@ -32,6 +32,7 @@ const form = ref<ChannelBody & { kind: string }>({
 })
 const busy = ref(false)
 const testing = ref<Channel | null>(null)
+const preset = ref('')
 const testUser = ref('')
 const testQuiet = ref(false)
 
@@ -79,6 +80,7 @@ onMounted(load)
 
 function startAdd() {
   editing.value = null
+  preset.value = ''
   const k = kinds.value[0]
   form.value = { kind: k?.name ?? 'http', name: '', enabled: true, perMinute: 0, config: {} }
   for (const f of k?.fields ?? []) if (f.default) form.value.config[f.key] = f.default
@@ -88,7 +90,20 @@ function startAdd() {
 function pickKind(name: string) {
   form.value.kind = name
   form.value.config = {}
+  preset.value = ''
   for (const f of kind.value?.fields ?? []) if (f.default) form.value.config[f.key] = f.default
+}
+
+// A preset fills the kind's fields; the admin's own values are left in
+// capitals for them to replace.
+function pickPreset(name: string) {
+  preset.value = name
+  const p = kind.value?.presets?.find((x) => x.name === name)
+  if (!p) return
+  const config: Record<string, string> = {}
+  for (const f of kind.value?.fields ?? []) config[f.key] = p.config[f.key] ?? ''
+  form.value.config = config
+  if (!form.value.name) form.value.name = p.name
 }
 
 function startEdit(c: Channel) {
@@ -181,7 +196,8 @@ async function sendTest() {
 }
 
 const variables =
-  '{{json .Text}}  {{json .Title}}  {{json .Address}}  {{json .Name}}  {{.Vars.name}}  {{urlquery .Text}}'
+  '{{.Text}}  {{.Title}}  {{.Address}}  {{.Name}}  {{.Secret}}  {{.ID}}  {{.Key}}  {{.Vars.name}}\n' +
+  '{{json .Text}}  {{urlquery .Text}}  {{e164 .Address}}  {{msisdn .Address}}  {{iran .Address}}'
 </script>
 
 <template>
@@ -207,6 +223,14 @@ const variables =
             :value="t('channels.problem')"
             v-tooltip="c.state.error"
           />
+          <small class="muted">
+            {{
+              t('channels.sent', {
+                today: c.sentToday.toLocaleString(locale),
+                month: c.sentMonth.toLocaleString(locale),
+              })
+            }}
+          </small>
           <small class="muted">
             {{ t('channels.perMinute') }}:
             <span class="mono">{{ rate(c) }}</span>
@@ -266,6 +290,18 @@ const variables =
             @update:model-value="pickKind"
           />
         </div>
+        <div v-if="!editing && kind?.presets?.length" class="field">
+          <label>{{ t('channels.preset') }}</label>
+          <Select
+            :model-value="preset"
+            :options="kind.presets.map((p) => ({ value: p.name, label: p.name }))"
+            option-label="label"
+            option-value="value"
+            :placeholder="t('channels.presetNone')"
+            @update:model-value="pickPreset"
+          />
+          <small class="muted">{{ t('channels.presetHelp') }}</small>
+        </div>
         <div class="field">
           <label for="cn">{{ t('channels.name') }}</label>
           <InputText id="cn" v-model="form.name" maxlength="64" />
@@ -315,6 +351,10 @@ const variables =
             fieldHelp(form.kind, f.key)
           }}</small>
           <small v-if="f.secret && editing" class="muted">{{ t('channels.secretKept') }}</small>
+        </div>
+        <div v-if="form.kind === 'kavenegar' || form.kind === 'faraz'" class="field">
+          <label>{{ t('channels.noticeVars') }}</label>
+          <code class="mono vars" dir="ltr">{name} {days} {expiry} {traffic} {title} {text}</code>
         </div>
         <div v-if="form.kind === 'http'" class="field">
           <label>{{ t('channels.variables') }}</label>

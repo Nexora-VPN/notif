@@ -8,7 +8,7 @@ import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Tag from 'primevue/tag'
-import { api, type BotLink, type UserRow } from '../api'
+import { api, type BotLink, type NtfyFeed, type UserRow } from '../api'
 
 const { t, locale } = useI18n()
 const toast = useToast()
@@ -18,10 +18,10 @@ const items = ref<UserRow[]>([])
 const total = ref(0)
 const first = ref(0)
 const rows = 25
-const open = ref<{ user: UserRow; code: string; bots: BotLink[] } | null>(null)
+const open = ref<{ user: UserRow; code: string; bots: BotLink[]; ntfy: NtfyFeed[] } | null>(null)
 const busy = ref(false)
 
-const keys = ['telegram_id', 'bale_id', 'soroush_id', 'rubika_id', 'phone', 'email']
+const keys = ['telegram_id', 'bale_id', 'soroush_id', 'rubika_id', 'ntfy', 'phone', 'email']
 
 function fail(e: unknown) {
   toast.add({
@@ -56,7 +56,7 @@ function page(e: DataTablePageEvent) {
 async function show(u: UserRow) {
   try {
     const r = await api.user(u.id)
-    open.value = { user: r.user, code: r.code, bots: r.bots ?? [] }
+    open.value = { user: r.user, code: r.code, bots: r.bots ?? [], ntfy: r.ntfy ?? [] }
   } catch (e) {
     fail(e)
   }
@@ -76,6 +76,20 @@ async function unlink(key: string) {
   busy.value = true
   try {
     await api.unlink(open.value.user.id, key)
+    await show(open.value.user)
+    await load()
+  } catch (e) {
+    fail(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function ntfyOn() {
+  if (!open.value) return
+  busy.value = true
+  try {
+    await api.ntfyOn(open.value.user.id)
     await show(open.value.user)
     await load()
   } catch (e) {
@@ -183,6 +197,29 @@ function when(unix: number) {
             <Button icon="pi pi-copy" text :aria-label="t('users.copy')" @click="copy(b.url)" />
           </div>
         </div>
+        <div v-for="f in open.ntfy" :key="'n' + f.channelId" class="bot">
+          <div class="row">
+            <b>{{ f.name }}</b>
+            <Tag
+              :severity="f.topic ? 'success' : 'secondary'"
+              :value="f.topic ? t('users.linked') : t('users.notLinked')"
+            />
+          </div>
+          <div v-if="f.url" class="row">
+            <code class="mono link" dir="ltr">{{ f.url }}</code>
+            <Button icon="pi pi-copy" text :aria-label="t('users.copy')" @click="copy(f.url)" />
+          </div>
+          <small v-if="f.url" class="muted">{{ t('users.ntfyHelp') }}</small>
+          <div v-else>
+            <Button
+              :label="t('users.ntfyOn')"
+              size="small"
+              outlined
+              :loading="busy"
+              @click="ntfyOn"
+            />
+          </div>
+        </div>
         <div class="field">
           <label>{{ t('users.links') }}</label>
           <ul class="links">
@@ -190,7 +227,7 @@ function when(unix: number) {
               <span>{{ t('users.keys.' + k) }}</span>
               <code class="mono" dir="ltr">{{ open.user.contact?.[k] }}</code>
               <Button
-                v-if="k.endsWith('_id')"
+                v-if="k.endsWith('_id') || k === 'ntfy'"
                 :label="t('users.unlink')"
                 size="small"
                 text

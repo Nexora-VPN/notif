@@ -11,10 +11,12 @@ sent only when the free channels could not deliver.
 > **Status: in development.** In place: registration with a panel, the
 > admin web with two-factor sign-in, SQLite or PostgreSQL, the delivery core
 > (channels in a fall-back order, retries, quiet hours, a rate per channel,
-> the delivery log), the generic HTTP channel, and the Telegram, Bale,
-> Soroush Plus and Rubika bots with linking by subscription link or link
-> code. SMS, email, ntfy, the account's notices and the admin's own
-> messages arrive in the next versions.
+> the delivery log); the Telegram, Bale, Soroush Plus and Rubika bots with
+> linking by subscription link or link code; SMS through Kavenegar and
+> Faraz SMS; email over SMTP; ntfy; and the generic HTTP channel with
+> presets (SMS.ru, SMSC, SMS Aero, MTS Exolve, VK, LINE, Matrix, Pushover).
+> The account's notices and the admin's own messages arrive in the next
+> versions.
 
 A user links a bot by sending it their subscription link (or the link code
 the admin hands out); the chat id is written into the account's contact

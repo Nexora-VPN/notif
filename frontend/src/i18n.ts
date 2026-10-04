@@ -106,6 +106,12 @@ const en = {
     secretKept: 'Leave it as it is to keep the saved value.',
     variables: 'Variables in the address and the body',
     problem: 'Problem',
+    preset: 'Start from',
+    presetNone: 'Nothing: fill it in yourself',
+    presetHelp:
+      'A provider’s ready settings. Replace what is written in CAPITALS with your own values and put the provider’s key in the secret field.',
+    sent: 'Sent today {today}, this month {month}',
+    noticeVars: 'The notice’s variables',
   },
   kinds: {
     http: {
@@ -137,6 +143,47 @@ const en = {
         'The token Rubika’s BotFather gave. Give Notif a bot of its own: one bot’s updates can be read by one program only.',
       apiBaseHelp:
         'Rubika’s Bot API. It may refuse servers outside Iran: set the proxy, or put a relay inside Iran here.',
+    },
+    kavenegar: {
+      name: 'Kavenegar (SMS)',
+      template: 'Template name',
+      templateHelp: 'The lookup template approved in your Kavenegar panel.',
+      variables: 'Template variables',
+      variablesHelp:
+        "One a line: token={'{'}name{'}'}. Kavenegar has token, token2, token3 (no spaces), token10 and token20.",
+      apiBaseHelp: 'Kavenegar’s API. Change it only for a relay.',
+    },
+    faraz: {
+      name: 'Faraz SMS',
+      code: 'Pattern code',
+      codeHelp: 'The approved pattern’s code in your Faraz panel.',
+      lineNumber: 'Line number',
+      variables: 'Pattern variables',
+      variablesHelp: "One a line: name={'{'}name{'}'}, as the pattern names them.",
+      maxLengths: 'Variable lengths',
+      maxLengthsHelp:
+        'One a line: name=20, the length each variable has in the pattern. A longer value is cut: Faraz would otherwise hold the message for approval and still say sent.',
+      apiBaseHelp: 'Faraz’s API. Change it only for a relay.',
+    },
+    smtp: {
+      name: 'Email (SMTP)',
+      host: 'Server',
+      port: 'Port',
+      security: 'Security',
+      securityHelp: 'starttls on 587, tls on 465.',
+      username: 'User',
+      password: 'Password',
+      from: 'From address',
+      fromHelp:
+        'On your own domain, with SPF, DKIM and DMARC set: QQ Mail, 163, Mail.ru and Gmail refuse mail they cannot verify.',
+      fromName: 'From name',
+    },
+    ntfy: {
+      name: 'ntfy',
+      server: 'Server',
+      serverHelp: 'ntfy.sh or your own server. A user subscribes to their topic in the ntfy app.',
+      token: 'Access token',
+      tokenHelp: 'For a server that asks for one.',
     },
   },
   log: {
@@ -201,6 +248,23 @@ const en = {
       'Bale slows a bot that writes to users who are not talking to it; its paid business API is for notices. On sends through it.',
     business_off: 'Off',
     business_on: 'On',
+    apiKey: 'API key',
+    secret: 'Secret',
+    secretHelp:
+      "The provider’s key or token. Kept secret; the address, headers and body read it as {'{'}{'{'}.Secret{'}'}{'}'}.",
+    bodyType: 'Body',
+    bodyType_json: 'JSON',
+    bodyType_form: 'Form (name=value, one a line)',
+    bodyType_none: 'None',
+    basicUser: 'Basic auth user',
+    basicPassword: 'Basic auth password',
+    successPattern: 'Success pattern',
+    successPatternHelp:
+      'For a provider that answers 200 to a failure: a regular expression the answer must contain to count as sent.',
+    caBundle: 'CA certificate (PEM)',
+    caBundleHelp: 'Trust a provider’s private certificate. Empty uses the system’s.',
+    priority: 'Priority',
+    priorityHelp: 'ntfy’s 1 (min) to 5 (urgent).',
   },
   users: {
     title: 'Accounts',
@@ -230,7 +294,11 @@ const en = {
       rubika_id: 'Rubika',
       phone: 'Phone',
       email: 'Email',
+      ntfy: 'ntfy',
     },
+    ntfyOn: 'Turn ntfy on',
+    ntfyHelp:
+      'The user subscribes to this address in the ntfy app. Whoever knows it can read it: hand it to this user only.',
   },
 }
 
@@ -339,6 +407,12 @@ const fa: Messages = {
     secretKept: 'اگر دست نزنید، مقدار ذخیره‌شده می‌ماند.',
     variables: 'متغیرهای نشانی و بدنه',
     problem: 'مشکل',
+    preset: 'شروع از',
+    presetNone: 'هیچ‌کدام: خودتان پر کنید',
+    presetHelp:
+      'تنظیمات آمادهٔ یک سرویس. آنچه با حروف بزرگ نوشته شده را با مقدار خودتان عوض کنید و کلید سرویس را در فیلد «رمز» بگذارید.',
+    sent: 'ارسال امروز {today}، این ماه {month}',
+    noticeVars: 'متغیرهای اعلان',
   },
   kinds: {
     http: {
@@ -370,6 +444,47 @@ const fa: Messages = {
         'توکنی که BotFather روبیکا داده. یک ربات جدا برای notif بسازید: آپدیت‌های هر ربات را فقط یک برنامه می‌تواند بخواند.',
       apiBaseHelp:
         'Bot API روبیکا. ممکن است به سرورهای بیرون از ایران جواب ندهد: پروکسی بگذارید یا نشانی یک واسط داخل ایران را اینجا بنویسید.',
+    },
+    kavenegar: {
+      name: 'کاوه‌نگار (پیامک)',
+      template: 'نام الگو',
+      templateHelp: 'الگوی lookup که در پنل کاوه‌نگار تأیید شده.',
+      variables: 'متغیرهای الگو',
+      variablesHelp:
+        "هر خط یکی: token={'{'}name{'}'}. کاوه‌نگار token، token2 و token3 (بدون فاصله)، token10 و token20 دارد.",
+      apiBaseHelp: 'API کاوه‌نگار. فقط برای واسط عوضش کنید.',
+    },
+    faraz: {
+      name: 'فراز اس‌ام‌اس',
+      code: 'کد الگو',
+      codeHelp: 'کد الگوی تأییدشده در پنل فراز.',
+      lineNumber: 'شمارهٔ خط',
+      variables: 'متغیرهای الگو',
+      variablesHelp: "هر خط یکی: name={'{'}name{'}'}، با همان نامی که در الگوست.",
+      maxLengths: 'طول متغیرها',
+      maxLengthsHelp:
+        'هر خط یکی: name=20، طولی که هر متغیر در الگو دارد. مقدار بلندتر کوتاه می‌شود؛ وگرنه فراز پیام را برای تأیید دستی نگه می‌دارد و باز هم «ارسال شد» می‌گوید.',
+      apiBaseHelp: 'API فراز. فقط برای واسط عوضش کنید.',
+    },
+    smtp: {
+      name: 'ایمیل (SMTP)',
+      host: 'سرور',
+      port: 'پورت',
+      security: 'امنیت',
+      securityHelp: 'starttls روی ۵۸۷، tls روی ۴۶۵.',
+      username: 'کاربر',
+      password: 'رمز',
+      from: 'نشانی فرستنده',
+      fromHelp:
+        'روی دامنهٔ خودتان با SPF، DKIM و DMARC: QQ Mail، 163، Mail.ru و Gmail نامه‌ای را که نتوانند بررسی کنند نمی‌پذیرند.',
+      fromName: 'نام فرستنده',
+    },
+    ntfy: {
+      name: 'ntfy',
+      server: 'سرور',
+      serverHelp: 'ntfy.sh یا سرور خودتان. کاربر در برنامهٔ ntfy مشترک موضوع خودش می‌شود.',
+      token: 'توکن دسترسی',
+      tokenHelp: 'برای سروری که توکن می‌خواهد.',
     },
   },
   log: {
@@ -434,6 +549,23 @@ const fa: Messages = {
       'بله رباتی را که به کاربرانِ خارج از گفتگو پیام می‌دهد کند می‌کند؛ API پولی کسب‌وکار بله برای اعلان است. روشن یعنی ارسال از آن راه.',
     business_off: 'خاموش',
     business_on: 'روشن',
+    apiKey: 'کلید API',
+    secret: 'رمز',
+    secretHelp:
+      "کلید یا توکن سرویس. محرمانه نگه داشته می‌شود؛ نشانی، هدرها و بدنه آن را با {'{'}{'{'}.Secret{'}'}{'}'} می‌خوانند.",
+    bodyType: 'بدنه',
+    bodyType_json: 'JSON',
+    bodyType_form: 'فرم (name=value، هر خط یکی)',
+    bodyType_none: 'بدون بدنه',
+    basicUser: 'کاربر Basic auth',
+    basicPassword: 'رمز Basic auth',
+    successPattern: 'الگوی موفقیت',
+    successPatternHelp:
+      'برای سرویسی که به خطا هم 200 جواب می‌دهد: عبارت منظمی که جواب باید داشته باشد تا «ارسال شد» حساب شود.',
+    caBundle: 'گواهی CA (PEM)',
+    caBundleHelp: 'اعتماد به گواهی خصوصی یک سرویس. خالی یعنی گواهی‌های سیستم.',
+    priority: 'اولویت',
+    priorityHelp: 'اولویت ntfy از ۱ (کم) تا ۵ (فوری).',
   },
   users: {
     title: 'حساب‌ها',
@@ -463,7 +595,11 @@ const fa: Messages = {
       rubika_id: 'روبیکا',
       phone: 'تلفن',
       email: 'ایمیل',
+      ntfy: 'ntfy',
     },
+    ntfyOn: 'روشن کردن ntfy',
+    ntfyHelp:
+      'کاربر در برنامهٔ ntfy مشترک این نشانی می‌شود. هر کس آن را بداند می‌تواند بخواند: فقط به همین کاربر بدهید.',
   },
 }
 
@@ -570,6 +706,12 @@ const ru: Messages = {
     secretKept: 'Оставьте как есть, чтобы сохранить прежнее значение.',
     variables: 'Переменные адреса и тела',
     problem: 'Проблема',
+    preset: 'Начать с',
+    presetNone: 'Ничего: заполнить самому',
+    presetHelp:
+      'Готовые настройки сервиса. Замените написанное ЗАГЛАВНЫМИ своими значениями, а ключ сервиса укажите в поле «Секрет».',
+    sent: 'Отправлено сегодня {today}, за месяц {month}',
+    noticeVars: 'Переменные уведомления',
   },
   kinds: {
     http: {
@@ -601,6 +743,48 @@ const ru: Messages = {
         'Токен, который выдал BotFather в Rubika. Заведите для Notif отдельного бота: обновления одного бота может читать только одна программа.',
       apiBaseHelp:
         'Bot API Rubika. Может не отвечать серверам за пределами Ирана: укажите прокси или адрес посредника внутри Ирана.',
+    },
+    kavenegar: {
+      name: 'Kavenegar (SMS)',
+      template: 'Имя шаблона',
+      templateHelp: 'Шаблон lookup, одобренный в панели Kavenegar.',
+      variables: 'Переменные шаблона',
+      variablesHelp:
+        "По одной в строке: token={'{'}name{'}'}. У Kavenegar есть token, token2, token3 (без пробелов), token10 и token20.",
+      apiBaseHelp: 'API Kavenegar. Меняйте только для посредника.',
+    },
+    faraz: {
+      name: 'Faraz SMS',
+      code: 'Код шаблона',
+      codeHelp: 'Код одобренного шаблона в панели Faraz.',
+      lineNumber: 'Номер линии',
+      variables: 'Переменные шаблона',
+      variablesHelp: "По одной в строке: name={'{'}name{'}'}, как они названы в шаблоне.",
+      maxLengths: 'Длины переменных',
+      maxLengthsHelp:
+        'По одной в строке: name=20 — длина переменной в шаблоне. Длинное значение обрезается: иначе Faraz задержит сообщение на ручную проверку, но ответит «отправлено».',
+      apiBaseHelp: 'API Faraz. Меняйте только для посредника.',
+    },
+    smtp: {
+      name: 'Email (SMTP)',
+      host: 'Сервер',
+      port: 'Порт',
+      security: 'Защита',
+      securityHelp: 'starttls на 587, tls на 465.',
+      username: 'Пользователь',
+      password: 'Пароль',
+      from: 'Адрес отправителя',
+      fromHelp:
+        'На своём домене с SPF, DKIM и DMARC: QQ Mail, 163, Mail.ru и Gmail не принимают письма, которые не могут проверить.',
+      fromName: 'Имя отправителя',
+    },
+    ntfy: {
+      name: 'ntfy',
+      server: 'Сервер',
+      serverHelp:
+        'ntfy.sh или свой сервер. Пользователь подписывается на свою тему в приложении ntfy.',
+      token: 'Токен доступа',
+      tokenHelp: 'Для сервера, который его требует.',
     },
   },
   log: {
@@ -665,6 +849,23 @@ const ru: Messages = {
       'Bale замедляет бота, который пишет пользователям вне диалога; платный бизнес-API Bale предназначен для уведомлений. Включено — отправка через него.',
     business_off: 'Выкл.',
     business_on: 'Вкл.',
+    apiKey: 'Ключ API',
+    secret: 'Секрет',
+    secretHelp:
+      "Ключ или токен сервиса. Хранится в секрете; адрес, заголовки и тело читают его как {'{'}{'{'}.Secret{'}'}{'}'}.",
+    bodyType: 'Тело',
+    bodyType_json: 'JSON',
+    bodyType_form: 'Форма (name=value, по одному в строке)',
+    bodyType_none: 'Нет',
+    basicUser: 'Пользователь Basic auth',
+    basicPassword: 'Пароль Basic auth',
+    successPattern: 'Признак успеха',
+    successPatternHelp:
+      'Для сервиса, который отвечает 200 и на ошибку: регулярное выражение, которое должно быть в ответе, чтобы считать отправку удачной.',
+    caBundle: 'Сертификат CA (PEM)',
+    caBundleHelp: 'Доверять частному сертификату сервиса. Пусто — системные.',
+    priority: 'Приоритет',
+    priorityHelp: 'Приоритет ntfy от 1 (низкий) до 5 (срочный).',
   },
   users: {
     title: 'Аккаунты',
@@ -694,7 +895,11 @@ const ru: Messages = {
       rubika_id: 'Rubika',
       phone: 'Телефон',
       email: 'Email',
+      ntfy: 'ntfy',
     },
+    ntfyOn: 'Включить ntfy',
+    ntfyHelp:
+      'Пользователь подписывается на этот адрес в приложении ntfy. Кто знает адрес, тот может читать: передайте его только этому пользователю.',
   },
 }
 
@@ -801,6 +1006,12 @@ const zh: Messages = {
     secretKept: '保持不变即保留已保存的值。',
     variables: '地址与正文中的变量',
     problem: '问题',
+    preset: '从预设开始',
+    presetNone: '不用预设：自行填写',
+    presetHelp:
+      '服务商的现成设置。把大写字母写的部分换成您自己的值，并把服务商的密钥填入“密钥”字段。',
+    sent: '今日已发送 {today}，本月 {month}',
+    noticeVars: '通知变量',
   },
   kinds: {
     http: {
@@ -831,6 +1042,47 @@ const zh: Messages = {
         'Rubika 的 BotFather 提供的令牌。请为 Notif 单独创建机器人：一个机器人的更新只能由一个程序读取。',
       apiBaseHelp:
         'Rubika 的 Bot API，可能拒绝伊朗境外的服务器：请设置代理，或在此填写伊朗境内中转的地址。',
+    },
+    kavenegar: {
+      name: 'Kavenegar（短信）',
+      template: '模板名称',
+      templateHelp: '在 Kavenegar 后台审核通过的 lookup 模板。',
+      variables: '模板变量',
+      variablesHelp:
+        "每行一个：token={'{'}name{'}'}。Kavenegar 提供 token、token2、token3（不含空格）、token10 和 token20。",
+      apiBaseHelp: 'Kavenegar 的 API，仅在使用中转时修改。',
+    },
+    faraz: {
+      name: 'Faraz SMS',
+      code: '模板代码',
+      codeHelp: 'Faraz 后台中已审核模板的代码。',
+      lineNumber: '线路号码',
+      variables: '模板变量',
+      variablesHelp: "每行一个：name={'{'}name{'}'}，与模板中的名称一致。",
+      maxLengths: '变量长度',
+      maxLengthsHelp:
+        '每行一个：name=20，即模板中该变量的长度。超长的值会被截断，否则 Faraz 会把消息留待人工审核却仍回报已发送。',
+      apiBaseHelp: 'Faraz 的 API，仅在使用中转时修改。',
+    },
+    smtp: {
+      name: '电子邮件（SMTP）',
+      host: '服务器',
+      port: '端口',
+      security: '加密',
+      securityHelp: '587 端口用 starttls，465 端口用 tls。',
+      username: '用户',
+      password: '密码',
+      from: '发件地址',
+      fromHelp:
+        '使用您自己的域名并配置 SPF、DKIM 和 DMARC：QQ 邮箱、163、Mail.ru 和 Gmail 会拒收无法验证的邮件。',
+      fromName: '发件人名称',
+    },
+    ntfy: {
+      name: 'ntfy',
+      server: '服务器',
+      serverHelp: 'ntfy.sh 或您自己的服务器。用户在 ntfy 应用中订阅自己的主题。',
+      token: '访问令牌',
+      tokenHelp: '用于需要令牌的服务器。',
     },
   },
   log: {
@@ -894,6 +1146,22 @@ const zh: Messages = {
       'Bale 会限制向非对话中用户发消息的机器人；其付费商业 API 专用于通知。开启后通过它发送。',
     business_off: '关',
     business_on: '开',
+    apiKey: 'API 密钥',
+    secret: '密钥',
+    secretHelp:
+      "服务商的密钥或令牌，保密保存；地址、请求头和正文以 {'{'}{'{'}.Secret{'}'}{'}'} 读取。",
+    bodyType: '正文',
+    bodyType_json: 'JSON',
+    bodyType_form: '表单（name=value，每行一个）',
+    bodyType_none: '无',
+    basicUser: 'Basic 认证用户',
+    basicPassword: 'Basic 认证密码',
+    successPattern: '成功判断',
+    successPatternHelp: '对于失败也返回 200 的服务商：响应中必须包含的正则表达式，才算发送成功。',
+    caBundle: 'CA 证书（PEM）',
+    caBundleHelp: '信任服务商的私有证书。留空则使用系统证书。',
+    priority: '优先级',
+    priorityHelp: 'ntfy 优先级，1（最低）到 5（紧急）。',
   },
   users: {
     title: '账户',
@@ -922,7 +1190,10 @@ const zh: Messages = {
       rubika_id: 'Rubika',
       phone: '电话',
       email: '邮箱',
+      ntfy: 'ntfy',
     },
+    ntfyOn: '开启 ntfy',
+    ntfyHelp: '用户在 ntfy 应用中订阅此地址。知道地址的人都能读取：只交给该用户。',
   },
 }
 

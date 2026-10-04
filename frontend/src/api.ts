@@ -63,9 +63,16 @@ export interface Field {
   choices?: string[]
 }
 
+export interface Preset {
+  name: string
+  config: Record<string, string>
+  market?: string
+}
+
 export interface Kind {
   name: string
   contact?: string
+  presets?: Preset[]
   fields: Field[]
   perMinute: number
 }
@@ -79,6 +86,8 @@ export interface Channel {
   perMinute: number
   config: Record<string, string>
   state: Record<string, string> | null
+  sentToday: number
+  sentMonth: number
 }
 
 export interface ChannelBody {
@@ -157,6 +166,14 @@ export interface BotLink {
   linked?: string
 }
 
+export interface NtfyFeed {
+  channelId: number
+  name: string
+  server: string
+  topic?: string
+  url?: string
+}
+
 export const api = {
   login: (username: string, password: string) =>
     call<Me | { mfa: true; token: string }>('POST', '/login', { username, password }),
@@ -191,7 +208,11 @@ export const api = {
         new URLSearchParams({ q, limit: String(limit), offset: String(offset) }).toString(),
     ),
   user: (id: number) =>
-    call<{ user: UserRow; code: string; bots: BotLink[] | null }>('GET', '/users/' + id),
+    call<{ user: UserRow; code: string; bots: BotLink[] | null; ntfy: NtfyFeed[] | null }>(
+      'GET',
+      '/users/' + id,
+    ),
+  ntfyOn: (id: number) => call<{ topic: string }>('POST', '/users/' + id + '/ntfy'),
   unlink: (id: number, key: string) => call<void>('POST', '/users/' + id + '/unlink', { key }),
   delivery: (id: number) => call<Delivery>('GET', '/deliveries/' + id),
   cancelDelivery: (id: number) => call<void>('POST', '/deliveries/' + id + '/cancel'),

@@ -51,6 +51,14 @@ func (l *Links) mac(userID uint) string {
 	return strings.ToLower(codeEncoding.EncodeToString(m.Sum(nil))[:10])
 }
 
+// NtfyTopic is a user's ntfy topic: long enough that nobody guesses it,
+// drawn from Notif's secret so it is the same every time it is asked for.
+func (l *Links) NtfyTopic(userID uint) string {
+	m := hmac.New(sha256.New, l.Secret)
+	fmt.Fprintf(m, "ntfy:%d", userID)
+	return "notif-" + strings.ToLower(codeEncoding.EncodeToString(m.Sum(nil))[:20])
+}
+
 var codePattern = regexp.MustCompile(`^(\d{1,12})-([a-z2-7]{10})$`)
 
 // ByCode is the account a link code names, when the code is genuine.

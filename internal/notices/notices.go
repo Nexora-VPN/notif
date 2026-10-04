@@ -62,14 +62,4 @@ func Render(d model.Delivery, u model.User, ch model.Channel, lang string) chann
 	return m
 }
 
-// fill replaces {name}-style variables; an unknown one is left as written.
-func fill(s string, vars map[string]string) string {
-	if !strings.Contains(s, "{") {
-		return s
-	}
-	pairs := make([]string, 0, len(vars)*2)
-	for k, v := range vars {
-		pairs = append(pairs, "{"+k+"}", v)
-	}
-	return strings.NewReplacer(pairs...).Replace(s)
-}
+func fill(s string, vars map[string]string) string { return channel.Fill(s, vars) }
