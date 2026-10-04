@@ -38,7 +38,9 @@ sh install.sh --method docker --opt port=8097 --opt admin_password=… \
 
 `--method script` installs the binary under systemd instead of Docker, as
 its own user with only its data directory writable, after checking the
-archive against the release's `SHA256SUMS`. Run the same command again to
+archive against the release's `SHA256SUMS` (and, installed by the panel
+over SSH, `install.sh` and the archive against that file as signed in
+`SHA256SUMS.sig`). Run the same command again to
 update; `--uninstall [--purge]` removes it.
 
 ## Back up

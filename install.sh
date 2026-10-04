@@ -10,6 +10,8 @@
 # --method docker   the compose stack in deploy/compose.yml
 # --version TAG     a release tag (default: the latest release)
 # --binary-file F   install this archive instead of downloading one (script)
+# --sha256 HEX      the archive's SHA-256, checked before it is installed: the
+#                   panel hands it from the release's signed SHA256SUMS
 # --opt KEY=VALUE   an answer to one of the manifest's install options; repeat
 # --panel-url URL   the panel's address, passed as NEXORA_PANEL_URL
 # --claim-code C    the one-time code the panel registers the addon with
@@ -28,6 +30,7 @@ UNIT="nexora-addon-${SLUG}"
 METHOD=""
 VERSION=""
 BINARY_FILE=""
+SHA256=""
 PANEL_URL=""
 CLAIM_CODE=""
 UNINSTALL=0
@@ -41,6 +44,7 @@ while [ $# -gt 0 ]; do
 	--method) METHOD="$2"; shift 2 ;;
 	--version) VERSION="$2"; shift 2 ;;
 	--binary-file) BINARY_FILE="$2"; shift 2 ;;
+	--sha256) SHA256="$2"; shift 2 ;;
 	--opt)
 		case "$2" in *=*) ;; *) die "--opt takes KEY=VALUE" ;; esac
 		OPTS="${OPTS}$2
@@ -152,6 +156,14 @@ script)
 		curl -fsSL -o "${tmp}/SHA256SUMS" "${base}/SHA256SUMS" || die "the release ${VERSION} has no SHA256SUMS; not installing an archive that cannot be checked"
 		grep " ${ARCHIVE}\$" "${tmp}/SHA256SUMS" >"${tmp}/expected" || die "SHA256SUMS of ${VERSION} does not list ${ARCHIVE}"
 		(cd "$tmp" && sha256sum -c expected >/dev/null) || die "${ARCHIVE} does not match the release's SHA256SUMS"
+	fi
+	if [ -n "$SHA256" ]; then
+		if command -v sha256sum >/dev/null 2>&1; then
+			got="$(sha256sum "${tmp}/${ARCHIVE}" | cut -d' ' -f1)"
+		else
+			got="$(shasum -a 256 "${tmp}/${ARCHIVE}" | cut -d' ' -f1)"
+		fi
+		[ "$got" = "$(printf '%s' "$SHA256" | tr 'A-F' 'a-f')" ] || die "the archive's SHA-256 is ${got}, not the ${SHA256} the release signed"
 	fi
 	tar -xzf "${tmp}/${ARCHIVE}" -C "$tmp"
 	mkdir -p "${DIR}/bin"
