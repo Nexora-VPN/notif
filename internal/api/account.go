@@ -1,8 +1,11 @@
 package api
 
 import (
+	"errors"
+	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/nexora-vpn/addon-kit/auth"
@@ -26,26 +29,43 @@ func viewOf(a model.Admin) meView {
 	return meView{ID: a.ID, Username: a.Username, TOTPEnabled: a.TOTPEnabled(), LastLoginAt: a.LastLoginAt}
 }
 
+// dummyHash is compared against when the username is unknown, so a wrong
+// name takes as long to refuse as a wrong password and the time of the
+// answer does not say which names exist.
+var dummyHash = sync.OnceValue(func() string {
+	h, _ := auth.HashPassword(auth.RandomToken())
+	return h
+})
+
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
-	addr := auth.ClientAddr(r)
-	if s.logins.Locked(addr) {
-		writeErr(w, http.StatusTooManyRequests, "too many failed sign-ins; try again in a few minutes")
+	// Try reserves the attempt: guesses sent at once count while they are
+	// checked, so no more than the limit are checked at all.
+	done, ok := s.logins.Try(auth.ClientAddr(r))
+	if !ok {
+		writeCode(w, http.StatusTooManyRequests, "too_many_attempts", "too many failed sign-ins; try again in a few minutes")
 		return
 	}
+	failed := true
+	defer func() { done(failed) }()
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
 	if err := decode(r, &req); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	var a model.Admin
-	if s.db.Where("username = ?", strings.TrimSpace(req.Username)).First(&a).Error != nil || !auth.CheckPassword(a.PasswordHash, req.Password) {
-		s.logins.Fail(addr)
-		writeErr(w, http.StatusUnauthorized, "wrong username or password")
+	found := s.db.Where("username = ?", strings.TrimSpace(req.Username)).First(&a).Error == nil
+	hash := a.PasswordHash
+	if !found {
+		hash = dummyHash()
+	}
+	if !auth.CheckPassword(hash, req.Password) || !found {
+		writeCode(w, http.StatusUnauthorized, "wrong_credentials", "wrong username or password")
 		return
 	}
+	failed = false
 	if a.TOTPEnabled() {
 		tok := auth.RandomToken()
 		s.mu.Lock()
@@ -63,42 +83,73 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLoginMFA(w http.ResponseWriter, r *http.Request) {
-	addr := auth.ClientAddr(r)
-	if s.logins.Locked(addr) {
-		writeErr(w, http.StatusTooManyRequests, "too many failed sign-ins; try again in a few minutes")
+	done, ok := s.logins.Try(auth.ClientAddr(r))
+	if !ok {
+		writeCode(w, http.StatusTooManyRequests, "too_many_attempts", "too many failed sign-ins; try again in a few minutes")
 		return
 	}
+	failed := false
+	defer func() { done(failed) }()
 	var req struct {
 		Token string `json:"token"`
 		Code  string `json:"code"`
 	}
 	if err := decode(r, &req); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	s.mu.Lock()
 	p, ok := s.pending[req.Token]
 	s.mu.Unlock()
 	if !ok || time.Now().After(p.expires) {
-		writeErr(w, http.StatusUnauthorized, "the sign-in has expired; enter the password again")
+		writeCode(w, http.StatusUnauthorized, "login_expired", "the sign-in has expired; enter the password again")
 		return
 	}
 	var a model.Admin
 	if s.db.First(&a, p.adminID).Error != nil {
-		writeErr(w, http.StatusUnauthorized, "the sign-in has expired; enter the password again")
+		writeCode(w, http.StatusUnauthorized, "login_expired", "the sign-in has expired; enter the password again")
 		return
 	}
 	step, ok := auth.VerifyTOTP(a.TOTPSecret, req.Code, auth.Now(), a.TOTPLastUsed)
 	if !ok {
-		s.logins.Fail(addr)
-		writeErr(w, http.StatusUnauthorized, "wrong code")
+		failed = true
+		writeCode(w, http.StatusUnauthorized, "wrong_code", "wrong code")
+		return
+	}
+	// The step is recorded before the session starts, and only over an
+	// earlier one: of two sign-ins with the same code at once, one takes
+	// it and the other is refused.
+	res := s.db.Model(&model.Admin{}).Where("id = ? AND totp_last_used < ?", a.ID, step).Update("totp_last_used", step)
+	if res.Error != nil {
+		writeErr(w, http.StatusInternalServerError, "could not record the code: "+res.Error.Error())
+		return
+	}
+	if res.RowsAffected == 0 {
+		failed = true
+		writeCode(w, http.StatusUnauthorized, "wrong_code", "wrong code")
 		return
 	}
 	s.mu.Lock()
 	delete(s.pending, req.Token)
 	s.mu.Unlock()
-	s.db.Model(&a).Update("totp_last_used", step)
 	s.startSession(w, r, a)
+}
+
+// secure reports whether the browser reached Notif over HTTPS: directly,
+// or through a proxy in front of it, which its own Origin (or Referer)
+// says. Notif keeps no address of its own to compare with and trusts no
+// proxy's headers; the browser's word decides only whether the cookie it
+// is handed stays on HTTPS, which only the browser itself can make use of.
+func secure(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	for _, h := range []string{"Origin", "Referer"} {
+		if v := r.Header.Get(h); v != "" {
+			return strings.HasPrefix(strings.ToLower(v), "https://")
+		}
+	}
+	return false
 }
 
 func (s *Server) startSession(w http.ResponseWriter, r *http.Request, a model.Admin) {
@@ -108,24 +159,41 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request, a model.Ad
 		return
 	}
 	a.LastLoginAt = time.Now().Unix()
-	s.db.Model(&a).Update("last_login_at", a.LastLoginAt)
+	if err := s.db.Model(&a).Update("last_login_at", a.LastLoginAt).Error; err != nil {
+		log.Printf("admins: the last sign-in of %d: %v", a.ID, err)
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name: sessionCookie, Value: tok, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode,
-		Secure: r.TLS != nil, MaxAge: int(admins.SessionTTL.Seconds()),
+		Secure: secure(r), MaxAge: int(admins.SessionTTL.Seconds()),
 	})
 	writeJSON(w, http.StatusOK, viewOf(a))
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if c, _ := r.Cookie(sessionCookie); c != nil {
-		admins.End(s.db, c.Value)
+		if err := admins.End(s.db, c.Value); err != nil {
+			writeErr(w, http.StatusInternalServerError, "could not end the session: "+err.Error())
+			return
+		}
 	}
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode})
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: secure(r)})
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) handleMe(w http.ResponseWriter, _ *http.Request, a model.Admin) {
 	writeJSON(w, http.StatusOK, viewOf(a))
+}
+
+// passwordErr says why a new password was refused.
+func passwordErr(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, auth.ErrShortPassword):
+		writeCode(w, http.StatusBadRequest, "password_short", err.Error())
+	case errors.Is(err, auth.ErrLongPassword):
+		writeCode(w, http.StatusBadRequest, "password_long", err.Error())
+	default:
+		writeErr(w, http.StatusBadRequest, err.Error())
+	}
 }
 
 // handlePassword changes the password and ends the admin's other sessions.
@@ -135,21 +203,27 @@ func (s *Server) handlePassword(w http.ResponseWriter, r *http.Request, a model.
 		New     string `json:"new"`
 	}
 	if err := decode(r, &req); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	if !auth.CheckPassword(a.PasswordHash, req.Current) {
-		writeErr(w, http.StatusForbidden, "the current password is wrong")
+		writeCode(w, http.StatusForbidden, "wrong_password", "the current password is wrong")
 		return
 	}
 	hash, err := auth.HashPassword(req.New)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		passwordErr(w, err)
 		return
 	}
-	s.db.Model(&a).Update("password_hash", hash)
+	if err := s.db.Model(&a).Update("password_hash", hash).Error; err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not save the password: "+err.Error())
+		return
+	}
 	c, _ := r.Cookie(sessionCookie)
-	admins.EndOthers(s.db, a.ID, c.Value)
+	if err := admins.EndOthers(s.db, a.ID, c.Value); err != nil {
+		writeErr(w, http.StatusInternalServerError, "the password is changed, but the other sessions could not be ended: "+err.Error())
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -157,7 +231,7 @@ func (s *Server) handlePassword(w http.ResponseWriter, r *http.Request, a model.
 // it is confirmed.
 func (s *Server) handleTOTPEnrol(w http.ResponseWriter, _ *http.Request, a model.Admin) {
 	if a.TOTPEnabled() {
-		writeErr(w, http.StatusConflict, "two-factor sign-in is already on")
+		writeCode(w, http.StatusConflict, "totp_on", "two-factor sign-in is already on")
 		return
 	}
 	secret, err := auth.NewTOTPSecret()
@@ -176,25 +250,28 @@ func (s *Server) handleTOTPConfirm(w http.ResponseWriter, r *http.Request, a mod
 		Code string `json:"code"`
 	}
 	if err := decode(r, &req); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	s.mu.Lock()
 	secret := s.enrol[a.ID]
 	s.mu.Unlock()
 	if secret == "" {
-		writeErr(w, http.StatusConflict, "start the enrolment first")
+		writeCode(w, http.StatusConflict, "totp_not_started", "start the enrolment first")
 		return
 	}
 	step, ok := auth.VerifyTOTP(secret, req.Code, auth.Now(), 0)
 	if !ok {
-		writeErr(w, http.StatusBadRequest, "wrong code")
+		writeCode(w, http.StatusBadRequest, "wrong_code", "wrong code")
+		return
+	}
+	if err := s.db.Model(&a).Updates(map[string]any{"totp_secret": secret, "totp_last_used": step}).Error; err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not turn two-factor sign-in on: "+err.Error())
 		return
 	}
 	s.mu.Lock()
 	delete(s.enrol, a.ID)
 	s.mu.Unlock()
-	s.db.Model(&a).Updates(map[string]any{"totp_secret": secret, "totp_last_used": step})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -204,13 +281,16 @@ func (s *Server) handleTOTPDisable(w http.ResponseWriter, r *http.Request, a mod
 		Password string `json:"password"`
 	}
 	if err := decode(r, &req); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	if !auth.CheckPassword(a.PasswordHash, req.Password) {
-		writeErr(w, http.StatusForbidden, "the password is wrong")
+		writeCode(w, http.StatusForbidden, "wrong_password", "the password is wrong")
 		return
 	}
-	s.db.Model(&a).Updates(map[string]any{"totp_secret": "", "totp_last_used": 0})
+	if err := s.db.Model(&a).Updates(map[string]any{"totp_secret": "", "totp_last_used": 0}).Error; err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not turn two-factor sign-in off: "+err.Error())
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }

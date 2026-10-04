@@ -8,7 +8,7 @@ import Tag from 'primevue/tag'
 import Select from 'primevue/select'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
-import { api, type Delivery } from '../api'
+import { api, ApiError, type Delivery } from '../api'
 
 const { t, te, locale } = useI18n()
 const toast = useToast()
@@ -22,6 +22,9 @@ const user = ref('')
 const expanded = ref<Record<number, boolean>>({})
 const details = ref<Record<number, Delivery>>({})
 let timer = 0
+// alive is false once the page is left: a poll in flight then arms no
+// other.
+let alive = true
 
 const states = ['queued', 'held', 'sending', 'sent', 'failed', 'cancelled', 'unknown']
 
@@ -47,6 +50,23 @@ function noticeName(k: string) {
   return te('log.kinds.' + k) ? t('log.kinds.' + k) : k
 }
 
+function fail(e: unknown) {
+  toast.add({
+    severity: 'error',
+    summary: t('common.error'),
+    detail: (e as Error).message,
+    life: 5000,
+  })
+}
+
+// gone drops an opened delivery the log no longer has (pruned, say), so
+// the next poll does not ask for it again.
+function gone(id: number) {
+  const { [id]: _, ...rest } = expanded.value
+  expanded.value = rest
+  delete details.value[id]
+}
+
 async function load() {
   try {
     const r = await api.deliveries({
@@ -58,15 +78,16 @@ async function load() {
     items.value = r.items
     total.value = r.total
     const shown = Object.keys(expanded.value).map(Number)
-    const got = await Promise.all(shown.map((id) => api.delivery(id)))
-    got.forEach((d) => (details.value[d.id] = d))
-  } catch (e) {
-    toast.add({
-      severity: 'error',
-      summary: t('common.error'),
-      detail: (e as Error).message,
-      life: 5000,
+    const got = await Promise.allSettled(shown.map((id) => api.delivery(id)))
+    let failed: unknown
+    got.forEach((res, i) => {
+      if (res.status === 'fulfilled') details.value[res.value.id] = res.value
+      else if (res.reason instanceof ApiError && res.reason.status === 404) gone(shown[i])
+      else failed = res.reason
     })
+    if (failed) throw failed
+  } catch (e) {
+    fail(e)
   }
 }
 
@@ -76,7 +97,12 @@ function page(e: DataTablePageEvent) {
 }
 
 async function open(e: { data: Delivery }) {
-  details.value[e.data.id] = await api.delivery(e.data.id)
+  try {
+    details.value[e.data.id] = await api.delivery(e.data.id)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) gone(e.data.id)
+    else fail(err)
+  }
 }
 
 async function cancel(d: Delivery) {
@@ -84,12 +110,7 @@ async function cancel(d: Delivery) {
     await api.cancelDelivery(d.id)
     await load()
   } catch (e) {
-    toast.add({
-      severity: 'error',
-      summary: t('common.error'),
-      detail: (e as Error).message,
-      life: 5000,
-    })
+    fail(e)
   }
 }
 
@@ -99,6 +120,7 @@ watch(status, () => {
 })
 
 function poll() {
+  if (!alive) return
   timer = window.setTimeout(async () => {
     await load()
     poll()
@@ -109,7 +131,10 @@ onMounted(async () => {
   await load()
   poll()
 })
-onBeforeUnmount(() => window.clearTimeout(timer))
+onBeforeUnmount(() => {
+  alive = false
+  window.clearTimeout(timer)
+})
 </script>
 
 <template>

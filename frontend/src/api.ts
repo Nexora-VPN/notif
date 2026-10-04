@@ -1,13 +1,33 @@
 // The admin web's calls to Notif's own /api. The session is an HttpOnly
 // cookie, so nothing here holds a token; a 401 sends the admin to sign in.
+// An error the API gives a code is said in the admin's language
+// (i18n.ts, errors.*); one without, as the server words it.
+
+import { fieldLabel, i18n } from './i18n'
 
 export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public code = '',
   ) {
     super(message)
   }
+}
+
+// errorText is the words for an error answer: its code's, translated with
+// the values it names, else the server's own. A channel field the answer
+// names by its key is said as the channel form labels it.
+function errorText(
+  body: { error?: string; code?: string; params?: Record<string, string> },
+  fallback: string,
+) {
+  const { t, te } = i18n.global
+  if (!body.code || !te('errors.' + body.code)) return body.error ?? fallback
+  const params = { ...body.params }
+  if (params.field && body.code.startsWith('field_'))
+    params.field = fieldLabel(params.kind ?? '', params.field)
+  return t('errors.' + body.code, params)
 }
 
 let onSignedOut: () => void = () => {}
@@ -26,12 +46,15 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   if (res.status === 401 && !path.startsWith('/login')) onSignedOut()
   if (!res.ok) {
     let msg = res.statusText
+    let code = ''
     try {
-      msg = (await res.json()).error ?? msg
+      const answer = await res.json()
+      msg = errorText(answer, msg)
+      code = answer.code ?? ''
     } catch {
       // not JSON
     }
-    throw new ApiError(res.status, msg)
+    throw new ApiError(res.status, msg, code)
   }
   if (res.status === 204) return undefined as T
   return (await res.json()) as T
@@ -96,6 +119,8 @@ export interface ChannelBody {
   enabled: boolean
   perMinute: number
   config: Record<string, string>
+  // clear names the saved secrets to take away.
+  clear?: string[]
 }
 
 export interface Attempt {

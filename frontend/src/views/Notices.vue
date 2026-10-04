@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'primevue/usetoast'
 import Button from 'primevue/button'
@@ -135,19 +135,29 @@ function restore() {
   if (per) delete per[channelKind.value]
 }
 
+// asked counts the previews asked for: only the latest one's answer is
+// shown, so a slow answer to an older text never replaces a newer one.
+let asked = 0
+let typing = 0
+
 async function refresh() {
   if (!editing.value) return
   const title = current.value.title || fallback.value.title
   const body = current.value.body || fallback.value.body
+  const mine = ++asked
   try {
-    preview.value = await api.preview(editing.value.kind, lang.value, title, body)
+    const got = await api.preview(editing.value.kind, lang.value, title, body)
+    if (mine === asked) preview.value = got
   } catch (e) {
-    fail(e)
+    if (mine === asked) fail(e)
   }
 }
+// The preview waits for a pause in the typing, not every key.
 watch([lang, channelKind, () => current.value.body, () => current.value.title, editing], () => {
-  void refresh()
+  window.clearTimeout(typing)
+  typing = window.setTimeout(() => void refresh(), 300)
 })
+onBeforeUnmount(() => window.clearTimeout(typing))
 
 async function save() {
   if (!editing.value) return

@@ -9,6 +9,7 @@
   "docs": "https://github.com/Nexora-VPN/notif",
   "events": [
     "panel.addon_removed",
+    "panel.restore_applied",
     "user.created",
     "user.activated",
     "user.first_fetch",
@@ -19,7 +20,8 @@
     "user.quota_reached",
     "user.device_limit_reached",
     "user.deleted",
-    "user.bulk"
+    "user.bulk",
+    "user.generated"
   ],
   "health": "/health",
   "install": {
@@ -93,6 +95,22 @@
         },
         "required": true,
         "type": "secret"
+      },
+      {
+        "help": {
+          "en": "Proxies a bot channel may use wherever they are, host:port, comma-separated: this server 127.0.0.1:10808, the docker host host.docker.internal:10808 (in docker 127.0.0.1 is the container), a LAN address. Any other bot proxy must be an address its channel may reach.",
+          "fa": "پراکسی‌های ربات، هر کجا: host:port با ویرگول. این سرور 127.0.0.1:10808؛ در داکر host.docker.internal:10808 (127.0.0.1 خود کانتینر است)؛ یا نشانی شبکهٔ محلی.",
+          "ru": "Прокси ботов где угодно, host:port через запятую: 127.0.0.1:10808; в docker host.docker.internal:10808 (127.0.0.1 — сам контейнер); адрес LAN.",
+          "zh": "机器人代理（任意位置），host:port，逗号分隔：127.0.0.1:10808；docker 中 host.docker.internal:10808（127.0.0.1 为容器自身）；局域网地址。"
+        },
+        "key": "local_proxies",
+        "label": {
+          "en": "Allowed bot proxies",
+          "fa": "پراکسی‌های مجاز ربات",
+          "ru": "Разрешённые прокси ботов",
+          "zh": "允许的机器人代理"
+        },
+        "type": "string"
       }
     ]
   },

@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // ntfy (P39 (a)): a push app the user installs, subscribed to a topic of
@@ -28,6 +27,7 @@ func init() {
 			{Key: "server", Default: "https://ntfy.sh"},
 			{Key: "token", Secret: true},
 			{Key: "priority", Default: "3", Choices: []string{"1", "2", "3", "4", "5"}},
+			privateField,
 		},
 		New: newNtfy,
 	})
@@ -37,6 +37,7 @@ type ntfy struct {
 	server, token string
 	priority      int
 	client        *http.Client
+	hide          func(string) string
 }
 
 func newNtfy(cfg map[string]string) (Sender, error) {
@@ -48,7 +49,8 @@ func newNtfy(cfg map[string]string) (Sender, error) {
 	if p < 1 || p > 5 {
 		p = 3
 	}
-	return &ntfy{server: server, token: strings.TrimSpace(cfg["token"]), priority: p, client: &http.Client{Timeout: 20 * time.Second}}, nil
+	token := strings.TrimSpace(cfg["token"])
+	return &ntfy{server: server, token: token, priority: p, client: providerClient(nil, cfg), hide: hider(token)}, nil
 }
 
 // NtfyServer is a channel's server, for the subscribe address the admin
@@ -76,13 +78,13 @@ func (n *ntfy) Send(ctx context.Context, to Recipient, m Message) error {
 	if n.token != "" {
 		req.Header.Set("Authorization", "Bearer "+n.token)
 	}
-	resp, err := n.client.Do(req)
+	resp, err := do(n.client, req, "ntfy", n.hide)
 	if err != nil {
-		return &Retry{Reason: "ntfy: " + err.Error()}
+		return err
 	}
 	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-	reason := fmt.Sprintf("ntfy HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 2048))
+	reason := statusLine("ntfy", resp)
 	switch {
 	case resp.StatusCode/100 == 2:
 		return nil

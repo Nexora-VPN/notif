@@ -30,7 +30,7 @@ func setup(t *testing.T) (*Watch, *gorm.DB, *time.Time) {
 		t.Fatal(err)
 	}
 	if cfg.Driver == config.DriverPostgres {
-		gdb.Exec("TRUNCATE settings, users, channels, deliveries, attempts, sends, notices RESTART IDENTITY")
+		gdb.Exec("TRUNCATE settings, users, channels, deliveries, attempts, sends, notices, once_keys, chats, links, blocks RESTART IDENTITY")
 	}
 	// A Telegram channel: an account with a telegram_id is reachable.
 	gdb.Create(&model.Channel{
@@ -135,16 +135,25 @@ func TestEditsEventsAndTheirOverlap(t *testing.T) {
 		t.Fatalf("traffic added: %+v", got)
 	}
 	data, _ := json.Marshal(map[string]any{"userId": 1, "expiry": now.Unix() + 40*day, "volume": 60 << 30})
-	w.Event(addon.Event{ID: 9, Event: "user.renewed", Data: data}, nu)
+	w.Event(addon.Event{ID: 9, Time: 1000, Event: "user.renewed", Data: data}, nu)
 	if got := queued(gdb, "traffic_added"); got[0].Status != model.DeliveryCancelled {
 		t.Fatalf("the edit was not superseded: %s", got[0].Status)
 	}
-	if got := queued(gdb, "renewed"); len(got) != 1 || got[0].Key != "renewed:1:9" {
+	if got := queued(gdb, "renewed"); len(got) != 1 || got[0].Key != "renewed:1:9:1000" {
 		t.Fatalf("renewed: %+v", got)
 	}
+	// The same delivery again is the same notice; a panel restored to an
+	// earlier state, counting its ids from 9 again, raises a new one.
+	w.Event(addon.Event{ID: 9, Time: 1000, Event: "user.renewed", Data: data}, nu)
+	w.Event(addon.Event{ID: 9, Time: 5000, Event: "user.renewed", Data: data}, nu)
+	if got := queued(gdb, "renewed"); len(got) != 2 {
+		t.Fatalf("renewed again: %d", len(got))
+	}
+	resold := nu
+	resold.Enable = false
 	for _, reason := range []string{"expiry", "resale-volume"} {
 		data, _ := json.Marshal(map[string]any{"userId": 1, "reason": reason})
-		w.Event(addon.Event{ID: 10, Event: "user.disabled", Data: data}, nu)
+		w.Event(addon.Event{ID: 10, Event: "user.disabled", Data: data}, resold)
 	}
 	if got := queued(gdb, "disabled"); len(got) != 1 {
 		t.Fatalf("disabled: %d", len(got))
@@ -205,5 +214,67 @@ func TestTheAdminsWords(t *testing.T) {
 	}
 	if m := book.Render(d, u, model.Channel{Kind: "telegram"}, "en"); m.Title != "Account renewed" {
 		t.Fatalf("default en: %q", m.Title)
+	}
+}
+
+// TestAnEventCancelsOnlyWhatItTells: a renewal takes the place of the date
+// and traffic edits, not of a switch-off by hand; a delayed user.expired
+// cancels nothing and says nothing; a notice switched off replaces nothing.
+func TestAnEventCancelsOnlyWhatItTells(t *testing.T) {
+	w, gdb, now := setup(t)
+	old := user(gdb, 1, func(u *model.User) { u.Volume = 50 << 30; u.Expiry = now.Unix() + 10*day; u.UpdatedAt = 1 })
+	off := old
+	off.Enable, off.DisabledReason, off.UpdatedAt = false, "manual", 2
+	w.Changed(old, off)
+	more := off
+	more.Volume, more.UpdatedAt = 60<<30, 3
+	w.Changed(off, more)
+	// Expired long ago by the event's word, renewed since by the account's.
+	if err := w.Event(addon.Event{ID: 20, Event: "user.expired"}, more); err != nil {
+		t.Fatal(err)
+	}
+	if got := queued(gdb, "expired"); len(got) != 0 {
+		t.Fatalf("an outdated user.expired was told: %+v", got)
+	}
+	if got := queued(gdb, "traffic_added"); got[0].Status != model.DeliveryQueued {
+		t.Fatalf("user.expired cancelled the traffic added: %s", got[0].Status)
+	}
+	if err := w.Event(addon.Event{ID: 21, Event: "user.renewed"}, more); err != nil {
+		t.Fatal(err)
+	}
+	if got := queued(gdb, "traffic_added"); got[0].Status != model.DeliveryCancelled {
+		t.Fatalf("the renewal did not replace the traffic added: %s", got[0].Status)
+	}
+	if got := queued(gdb, "admin_disabled"); len(got) != 1 || got[0].Status != model.DeliveryQueued {
+		t.Fatalf("the renewal cancelled the switch-off by hand: %+v", got)
+	}
+	// "restored" is off by default: user.enabled does not cancel the edit
+	// that tells the same thing.
+	back := more
+	back.Enable, back.UpdatedAt = true, 4
+	w.Changed(more, back)
+	if err := w.Event(addon.Event{ID: 22, Event: "user.enabled"}, back); err != nil {
+		t.Fatal(err)
+	}
+	if got := queued(gdb, "admin_enabled"); len(got) != 1 || got[0].Status != model.DeliveryQueued {
+		t.Fatalf("an event whose notice is off cancelled the edit: %+v", got)
+	}
+}
+
+// TestAClockBehindThePanels: a user.expired for an expiry a few minutes
+// ahead of Notif's clock is the panel's clock running ahead, and is told;
+// an expiry well ahead is a renewal since, and is not.
+func TestAClockBehindThePanels(t *testing.T) {
+	w, gdb, now := setup(t)
+	u := user(gdb, 1, func(u *model.User) { u.Expiry = now.Unix() + 5*60 })
+	if err := w.Event(addon.Event{ID: 30, Event: "user.expired"}, u); err != nil {
+		t.Fatal(err)
+	}
+	renewed := user(gdb, 2, func(u *model.User) { u.Expiry = now.Unix() + 3600 })
+	if err := w.Event(addon.Event{ID: 31, Event: "user.expired"}, renewed); err != nil {
+		t.Fatal(err)
+	}
+	if got := queued(gdb, "expired"); len(got) != 1 || got[0].UserID != 1 {
+		t.Fatalf("expired: %+v", got)
 	}
 }

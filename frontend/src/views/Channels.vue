@@ -12,7 +12,9 @@ import Textarea from 'primevue/textarea'
 import Select from 'primevue/select'
 import ToggleSwitch from 'primevue/toggleswitch'
 import Tag from 'primevue/tag'
+import Message from 'primevue/message'
 import { api, type Channel, type ChannelBody, type Kind } from '../api'
+import { fieldLabel, fieldText } from '../i18n'
 
 const { t, te, locale } = useI18n()
 const toast = useToast()
@@ -35,6 +37,9 @@ const testing = ref<Channel | null>(null)
 const preset = ref('')
 const testUser = ref('')
 const testQuiet = ref(false)
+// The saved secrets the admin asked to take away; a secret left empty or
+// masked keeps its saved value.
+const clears = ref<string[]>([])
 
 const kind = computed(() => kinds.value.find((k) => k.name === form.value.kind))
 
@@ -47,15 +52,7 @@ function rate(c: Channel) {
 function kindName(name: string) {
   return te('kinds.' + name + '.name') ? t('kinds.' + name + '.name') : name
 }
-// A field's words: the kind's own, else the ones the bots share.
-function fieldText(k: string, f: string, fallback: string) {
-  if (te('kinds.' + k + '.' + f)) return t('kinds.' + k + '.' + f)
-  if (te('fields.' + f)) return t('fields.' + f)
-  return fallback
-}
-function fieldLabel(k: string, f: string) {
-  return fieldText(k, f, f)
-}
+// A field's words (i18n.ts): the kind's own, else the ones the bots share.
 function fieldHelp(k: string, f: string) {
   return fieldText(k, f + 'Help', '')
 }
@@ -101,13 +98,17 @@ function pickPreset(name: string) {
   const p = kind.value?.presets?.find((x) => x.name === name)
   if (!p) return
   const config: Record<string, string> = {}
-  for (const f of kind.value?.fields ?? []) config[f.key] = p.config[f.key] ?? ''
+  // A choice the preset leaves out keeps the kind's default (the own
+  // network stays off), so the select never shows nothing.
+  for (const f of kind.value?.fields ?? [])
+    config[f.key] = p.config[f.key] ?? (f.choices?.length ? (f.default ?? '') : '')
   form.value.config = config
   if (!form.value.name) form.value.name = p.name
 }
 
 function startEdit(c: Channel) {
   editing.value = c
+  clears.value = []
   form.value = {
     kind: c.kind,
     name: c.name,
@@ -115,13 +116,29 @@ function startEdit(c: Channel) {
     perMinute: c.perMinute,
     config: { ...c.config },
   }
+  // A choice added since the channel was saved shows the default it has.
+  for (const f of kind.value?.fields ?? [])
+    if (f.choices?.length && form.value.config[f.key] === undefined && f.default)
+      form.value.config[f.key] = f.default
   open.value = true
+}
+
+// clearSecret takes a saved secret away on save; keepSecret undoes it.
+function clearSecret(key: string) {
+  if (!clears.value.includes(key)) clears.value.push(key)
+  form.value.config[key] = ''
+}
+function keepSecret(key: string) {
+  clears.value = clears.value.filter((k) => k !== key)
+  if (editing.value) form.value.config[key] = editing.value.config[key] ?? ''
 }
 
 async function save() {
   busy.value = true
   try {
-    if (editing.value) await api.updateChannel(editing.value.id, form.value)
+    // A secret cleared and then typed again is the new value, not a clear.
+    const clear = clears.value.filter((k) => !form.value.config[k])
+    if (editing.value) await api.updateChannel(editing.value.id, { ...form.value, clear })
     else await api.createChannel(form.value)
     open.value = false
     toast.add({ severity: 'success', summary: t('common.saved'), life: 2500 })
@@ -194,6 +211,11 @@ async function sendTest() {
     busy.value = false
   }
 }
+
+// The variables an SMS template's lines may use: the notices' own, and
+// the rendered title and text.
+const smsVars =
+  '{name} {group} {days} {expiry} {traffic_used} {traffic_total} {traffic_left} {percent} {added} {sub_url} {channel} {title} {text}'
 
 const variables =
   '{{.Text}}  {{.Title}}  {{.Address}}  {{.Name}}  {{.Secret}}  {{.ID}}  {{.Key}}  {{.Vars.name}}\n' +
@@ -350,11 +372,37 @@ const variables =
           <small v-if="fieldHelp(form.kind, f.key)" class="muted">{{
             fieldHelp(form.kind, f.key)
           }}</small>
-          <small v-if="f.secret && editing" class="muted">{{ t('channels.secretKept') }}</small>
+          <Message
+            v-if="f.key === 'private' && form.config.private === 'on'"
+            severity="warn"
+            size="small"
+            >{{ t('fields.privateWarn') }}</Message
+          >
+          <template v-if="f.secret && editing && editing.config[f.key]">
+            <small v-if="clears.includes(f.key)" class="muted">
+              {{ t('channels.secretCleared') }}
+              <Button
+                :label="t('channels.secretUndo')"
+                size="small"
+                text
+                @click="keepSecret(f.key)"
+              />
+            </small>
+            <small v-else class="muted">
+              {{ t('channels.secretKept') }}
+              <Button
+                :label="t('channels.secretClear')"
+                size="small"
+                text
+                severity="danger"
+                @click="clearSecret(f.key)"
+              />
+            </small>
+          </template>
         </div>
         <div v-if="form.kind === 'kavenegar' || form.kind === 'faraz'" class="field">
           <label>{{ t('channels.noticeVars') }}</label>
-          <code class="mono vars" dir="ltr">{name} {days} {expiry} {traffic} {title} {text}</code>
+          <code class="mono vars" dir="ltr">{{ smsVars }}</code>
         </div>
         <div v-if="form.kind === 'http'" class="field">
           <label>{{ t('channels.variables') }}</label>

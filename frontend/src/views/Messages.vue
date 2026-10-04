@@ -40,6 +40,9 @@ const plan = ref<SendPlan>()
 const busy = ref(false)
 const sends = ref<SendReport[]>([])
 let timer = 0
+// alive is false once the page is left: a poll in flight then arms no
+// other.
+let alive = true
 
 const vars = ['name', 'expiry', 'days', 'traffic_left', 'traffic_total', 'sub_url']
 const statuses = ['active', 'disabled', 'expired', 'limited', 'pending']
@@ -193,6 +196,7 @@ function when(unix: number) {
 }
 
 function poll() {
+  if (!alive) return
   timer = window.setTimeout(async () => {
     await loadSends()
     poll()
@@ -208,7 +212,10 @@ onMounted(async () => {
   await loadSends()
   poll()
 })
-onBeforeUnmount(() => window.clearTimeout(timer))
+onBeforeUnmount(() => {
+  alive = false
+  window.clearTimeout(timer)
+})
 </script>
 
 <template>

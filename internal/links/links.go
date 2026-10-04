@@ -3,7 +3,8 @@
 // telegram_id, bale_id, soroush_id, rubika_id (P36 (iii), G-D1) — so the
 // panel stays the one record and every addon reads it. A user proves which
 // account is theirs by sending a bot their subscription link, or a link
-// code the admin handed them.
+// code the admin handed them. Notif remembers which keys it wrote
+// (model.Link): those, and only those, it takes away again.
 package links
 
 import (
@@ -14,15 +15,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/nexora-vpn/addon-kit/panel"
 	"github.com/nexora-vpn/notif/internal/model"
 	"github.com/nexora-vpn/notif/internal/users"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Panel is the panel as far as links need it (a *panel.Client).
@@ -101,42 +105,110 @@ func (l *Links) BySub(text string) (model.User, bool) {
 // ErrNotRegistered is a link written before Notif is registered.
 var ErrNotRegistered = errors.New("not registered with a panel")
 
+// ErrConflict is a card that kept changing under the write: three reads,
+// and each time another writer was quicker.
+var ErrConflict = errors.New("the account's contact card kept changing while it was written; try again")
+
 // Set writes one key of a user's contact card on the panel — value "" takes
-// it away — then refreshes the copy. The write carries the version it read,
-// so another addon's edit in between is never overwritten: a conflict reads
-// again, three times at most.
+// it away — then refreshes the copy, and records the key as Notif's own (a
+// value Notif's write put there) or no longer (""). A card that held value
+// already was written by someone else, so the key stays theirs. The write
+// carries the version it read, so another addon's edit in between is never
+// overwritten: a conflict reads again, three times at most.
 func (l *Links) Set(ctx context.Context, userID uint, key, value string) error {
-	return l.Update(ctx, userID, func(c map[string]string) {
+	before, err := l.Update(ctx, userID, func(c map[string]string) {
 		if value == "" {
 			delete(c, key)
 		} else {
 			c[key] = value
 		}
 	})
+	if err != nil {
+		return err
+	}
+	if value == "" {
+		return l.DB.Where("user_id = ? AND key = ?", userID, key).Delete(&model.Link{}).Error
+	}
+	if before[key] == value {
+		return nil
+	}
+	return l.Own(userID, key, value)
+}
+
+// Own records that Notif wrote value to key of a user's card, so it may
+// take it away again (Release).
+func (l *Links) Own(userID uint, key, value string) error {
+	return l.DB.Clauses(clause.OnConflict{UpdateAll: true}).
+		Create(&model.Link{UserID: userID, Key: key, Value: value, At: time.Now().Unix()}).Error
+}
+
+// Release takes key off a user's card only when Notif wrote it and the card
+// still holds value — the chat that failed, the one that wrote /stop — and
+// reports whether it was Notif's to take. A key another addon wrote, or one
+// written again since, is left as it is.
+func (l *Links) Release(ctx context.Context, userID uint, key, value string) (bool, error) {
+	var own model.Link
+	if err := l.DB.Where("user_id = ? AND key = ?", userID, key).Limit(1).Find(&own).Error; err != nil {
+		return false, err
+	}
+	if own.UserID == 0 || own.Value != value {
+		return false, nil
+	}
+	_, err := l.Update(ctx, userID, func(c map[string]string) {
+		if c[key] == value {
+			delete(c, key)
+		}
+	})
+	if err != nil {
+		return false, err
+	}
+	return true, l.DB.Where("user_id = ? AND key = ? AND value = ?", userID, key, value).Delete(&model.Link{}).Error
+}
+
+// Block records that a channel no longer reaches a user at value — a bot
+// the user stopped or blocked — so nothing is sent there while the card
+// still says value. It is how Notif stops writing to a chat whose key it
+// did not write and so may not take away.
+func (l *Links) Block(userID, channelID uint, value, reason string) error {
+	return l.DB.Clauses(clause.OnConflict{UpdateAll: true}).Create(&model.Block{
+		UserID: userID, ChannelID: channelID, Value: value, Reason: reason, At: time.Now().Unix(),
+	}).Error
+}
+
+// Unblock lifts a channel's block for a user: they linked it again.
+func (l *Links) Unblock(userID, channelID uint) error {
+	return l.DB.Where("user_id = ? AND channel_id = ?", userID, channelID).Delete(&model.Block{}).Error
 }
 
 // Update changes a user's contact card on the panel with edit, under the
 // same version check as Set; an edit that changes nothing writes nothing.
-func (l *Links) Update(ctx context.Context, userID uint, edit func(map[string]string)) error {
+// It returns the card as it was before the edit that took, so a caller can
+// tell a key Notif's write set from one the card held already. A card that
+// changes under every one of three writes is ErrConflict.
+func (l *Links) Update(ctx context.Context, userID uint, edit func(map[string]string)) (map[string]string, error) {
 	p := l.Panel()
 	if p == nil {
-		return ErrNotRegistered
+		return nil, ErrNotRegistered
 	}
 	path := "/users/" + strconv.FormatUint(uint64(userID), 10)
+	written := false
+	var prior map[string]string
 	for range 3 {
 		var acc struct {
 			Contact   map[string]string `json:"contact"`
 			UpdatedAt int64             `json:"updatedAt"`
 		}
 		if err := p.Do(ctx, panel.Request{Method: http.MethodGet, Path: path}, &acc); err != nil {
-			return err
+			return nil, err
 		}
 		if acc.Contact == nil {
 			acc.Contact = map[string]string{}
 		}
+		prior = maps.Clone(acc.Contact)
 		before, _ := json.Marshal(acc.Contact)
 		edit(acc.Contact)
 		if after, _ := json.Marshal(acc.Contact); string(after) == string(before) {
+			written = true
 			break
 		}
 		err := p.Do(ctx, panel.Request{Method: http.MethodPatch, Path: path, Body: map[string]any{
@@ -146,29 +218,26 @@ func (l *Links) Update(ctx context.Context, userID uint, edit func(map[string]st
 			continue
 		}
 		if err != nil {
-			return err
+			return nil, err
 		}
+		written = true
 		break
 	}
+	if !written {
+		return nil, ErrConflict
+	}
 	_, err := l.Users.One(ctx, userID)
-	return err
+	return prior, err
 }
 
-// Linked are the accounts in the copy whose contact key holds value.
+// Linked are the accounts in the copy whose contact key holds value, found
+// by the chats the copy keeps beside the cards (model.Chat).
 func (l *Links) Linked(key, value string) []model.User {
 	if value == "" {
 		return nil
 	}
-	// A coarse match in SQL (the value appears in the card), then the exact
-	// one here — the card's JSON is read the same on both databases.
-	needle, _ := json.Marshal(value)
-	var cands []model.User
-	l.DB.Where("gone_at = 0 AND contact LIKE ?", "%"+string(needle)+"%").Find(&cands)
 	var out []model.User
-	for _, u := range cands {
-		if u.Contact.V[key] == value {
-			out = append(out, u)
-		}
-	}
+	l.DB.Where("gone_at = 0 AND id IN (?)", l.DB.Model(&model.Chat{}).Select("user_id").Where("key = ? AND value = ?", key, value)).
+		Order("id").Find(&out)
 	return out
 }

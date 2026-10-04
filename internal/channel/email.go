@@ -35,6 +35,7 @@ func init() {
 			{Key: "password", Secret: true},
 			{Key: "from", Required: true},
 			{Key: "fromName"},
+			privateField,
 		},
 		New: newSMTP,
 	})
@@ -43,12 +44,14 @@ func init() {
 type smtpChannel struct {
 	host, port, security, user, pass string
 	from                             mail.Address
+	// private lets it reach a mail server on the admin's own network.
+	private bool
 }
 
 func newSMTP(cfg map[string]string) (Sender, error) {
 	c := &smtpChannel{
 		host: strings.TrimSpace(cfg["host"]), port: strings.TrimSpace(cfg["port"]), security: cfg["security"],
-		user: strings.TrimSpace(cfg["username"]), pass: cfg["password"],
+		user: strings.TrimSpace(cfg["username"]), pass: cfg["password"], private: ownNetwork(cfg),
 	}
 	if c.port == "" {
 		c.port = "587"
@@ -113,7 +116,10 @@ func (c *smtpChannel) compose(to string, m Message) ([]byte, error) {
 
 func (c *smtpChannel) deliver(ctx context.Context, to string, msg []byte) error {
 	address := net.JoinHostPort(c.host, c.port)
-	dialer := &net.Dialer{Timeout: 15 * time.Second}
+	// The server is dialled as every channel's address is (guard.go): a
+	// banner of a service on this host or a private network never reaches
+	// the log.
+	dialer := guardedDialer(c.private)
 	var conn net.Conn
 	var err error
 	tlsCfg := &tls.Config{ServerName: c.host, MinVersion: tls.VersionTLS12}
@@ -160,10 +166,19 @@ func (c *smtpChannel) deliver(ctx context.Context, to string, msg []byte) error 
 	if _, err := w.Write(msg); err != nil {
 		return err
 	}
+	// Closing the data sends its end and waits for the server to take the
+	// message. A refusal is an answer; a connection lost in that wait leaves
+	// it unknown whether the server took it, and it is not sent again.
 	if err := w.Close(); err != nil {
-		return err
+		var te *textproto.Error
+		if errors.As(err, &te) {
+			return err
+		}
+		return &Unknown{Reason: "smtp: " + err.Error() + " (the message reached the server; it may have been sent, so it is not sent again)"}
 	}
-	return cl.Quit()
+	// The server has the message; a goodbye that fails changes nothing.
+	_ = cl.Quit()
+	return nil
 }
 
 // classifySMTP: a 5xx answer is final (an address that does not exist, a
@@ -173,8 +188,12 @@ func classifySMTP(err error) error {
 		return nil
 	}
 	var refused *Refused
-	if errors.As(err, &refused) {
+	var unknown *Unknown
+	if errors.As(err, &refused) || errors.As(err, &unknown) {
 		return err
+	}
+	if errors.Is(err, ErrLocalAddress) {
+		return &Refused{Reason: "smtp: " + ErrLocalAddress.Error()}
 	}
 	var te *textproto.Error
 	if errors.As(err, &te) && te.Code >= 500 {

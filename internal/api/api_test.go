@@ -6,16 +6,25 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/nexora-vpn/addon-kit/addon"
 	"github.com/nexora-vpn/addon-kit/auth"
 	"github.com/nexora-vpn/notif/internal/admins"
+	"github.com/nexora-vpn/notif/internal/channel"
 	"github.com/nexora-vpn/notif/internal/config"
 	"github.com/nexora-vpn/notif/internal/db"
+	"github.com/nexora-vpn/notif/internal/model"
 	"gorm.io/gorm"
 )
+
+// TestMain lets the channels reach the stand-ins on 127.0.0.1.
+func TestMain(m *testing.M) {
+	channel.AllowLocal(true)
+	os.Exit(m.Run())
+}
 
 // newServer is a Notif on a fresh database — SQLite in a temporary
 // directory, or the PostgreSQL that NEXORA_TEST_POSTGRES_DSN names (its
@@ -32,7 +41,7 @@ func newServer(t *testing.T) (*Server, *gorm.DB, http.Handler) {
 		t.Fatal(err)
 	}
 	if cfg.Driver == config.DriverPostgres {
-		gdb.Exec("TRUNCATE admins, sessions, panels, settings, users, channels, deliveries, attempts, sends, notices RESTART IDENTITY")
+		gdb.Exec("TRUNCATE admins, sessions, panels, settings, users, channels, deliveries, attempts, sends, notices, once_keys, chats, links, blocks RESTART IDENTITY")
 	}
 	if _, err := admins.EnsureFirst(gdb, "admin", "correct horse"); err != nil {
 		t.Fatal(err)
@@ -45,7 +54,10 @@ func newServer(t *testing.T) (*Server, *gorm.DB, http.Handler) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := New(gdb, a, cfg, "test", nil)
+	s, err := New(gdb, a, cfg, "test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return s, gdb, s.Handler()
 }
 
@@ -174,5 +186,84 @@ func TestUnregisteredItShowsItsClaimCodeAndIsHealthy(t *testing.T) {
 	}
 	if w := call(t, h, "GET", "/api/nothing", "", c); w.Code != http.StatusNotFound {
 		t.Fatalf("an unknown route: %d", w.Code)
+	}
+}
+
+// TestNoSecretNoStart: a secret that cannot be read stops Notif from
+// starting, rather than drawing link codes from an empty key.
+func TestNoSecretNoStart(t *testing.T) {
+	s, gdb, _ := newServer(t)
+	gdb.Model(&model.Setting{}).Where("key = ?", "secret").Update("value", `"not hex"`)
+	if _, err := New(gdb, s.addon, s.cfg, "test", nil); err == nil {
+		t.Fatal("started without a secret")
+	}
+}
+
+// TestGuessesAtOnceAreCounted: guesses sent together are checked no more
+// than the limit, an unknown name is refused like a wrong password, and the
+// refusals carry codes the admin web translates.
+func TestGuessesAtOnceAreCounted(t *testing.T) {
+	_, _, h := newServer(t)
+	var mu sync.Mutex
+	codes := map[int]int{}
+	var wg sync.WaitGroup
+	for i := range 12 {
+		wg.Go(func() {
+			user := "admin"
+			if i%2 == 0 {
+				user = "nobody"
+			}
+			w := call(t, h, "POST", "/api/login", `{"username":"`+user+`","password":"wrong one!!"}`)
+			mu.Lock()
+			codes[w.Code]++
+			mu.Unlock()
+		})
+	}
+	wg.Wait()
+	if codes[http.StatusUnauthorized] > 5 || codes[http.StatusUnauthorized]+codes[http.StatusTooManyRequests] != 12 {
+		t.Fatalf("answers %v", codes)
+	}
+	w := call(t, h, "POST", "/api/login", `{"username":"admin","password":"correct horse"}`)
+	if !strings.Contains(w.Body.String(), `"code":"too_many_attempts"`) {
+		t.Fatalf("locked out: %s", w.Body)
+	}
+}
+
+// TestTheCookieStaysOnHTTPS: a browser on https — said by the connection
+// or by its Origin through a proxy — gets a Secure cookie; one on http
+// does not, or it could not sign in.
+func TestTheCookieStaysOnHTTPS(t *testing.T) {
+	_, _, h := newServer(t)
+	login := func(origin string) *http.Cookie {
+		r := httptest.NewRequest("POST", "/api/login", strings.NewReader(`{"username":"admin","password":"correct horse"}`))
+		r.RemoteAddr = "192.0.2.8:4000"
+		if origin != "" {
+			r.Header.Set("Origin", origin)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return session(t, w)
+	}
+	if !login("https://notif.example.com").Secure || login("http://192.0.2.1:8097").Secure || login("").Secure {
+		t.Fatal("the cookie's Secure flag does not follow the browser's scheme")
+	}
+}
+
+// TestAnotherPanelForgetsTheCopy: registered again with the same panel,
+// the copy of its accounts stays; registered with another, the copy goes
+// with the chats its cards named, so no notice meant for the old panel's
+// account reaches the new panel's account of the same id.
+func TestAnotherPanelForgetsTheCopy(t *testing.T) {
+	s, gdb, _ := newServer(t)
+	gdb.Create(&model.Panel{ID: "panel-a", URL: "https://a.example.com", RegisteredAt: 1})
+	gdb.Create(&model.User{ID: 1, Name: "ana", Contact: model.JSON[map[string]string]{V: map[string]string{"telegram_id": "42"}}})
+	gdb.Create(&model.Chat{UserID: 1, Key: "telegram_id", Value: "42"})
+	s.registered(addon.Credentials{Panel: addon.Panel{ID: "panel-a", URL: "https://a.example.com"}})
+	if n := gdb.Find(&[]model.User{}).RowsAffected; n != 1 {
+		t.Fatalf("the same panel again dropped the copy (%d)", n)
+	}
+	s.registered(addon.Credentials{Panel: addon.Panel{ID: "panel-b", URL: "https://b.example.com"}})
+	if n := gdb.Find(&[]model.User{}).RowsAffected + gdb.Find(&[]model.Chat{}).RowsAffected; n != 0 {
+		t.Fatalf("%d rows of the old panel's accounts left", n)
 	}
 }

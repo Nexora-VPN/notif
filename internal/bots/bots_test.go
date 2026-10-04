@@ -3,6 +3,7 @@ package bots
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -22,14 +23,22 @@ import (
 	"gorm.io/gorm"
 )
 
+// TestMain lets the bots reach the stand-in APIs on 127.0.0.1, which an
+// install's channels may not.
+func TestMain(m *testing.M) {
+	channel.AllowLocal(true)
+	os.Exit(m.Run())
+}
+
 // fakePanel keeps accounts' contact cards and versions, as GET and PATCH
 // /api/v1/users/{id} do.
 type fakePanel struct {
 	mu       sync.Mutex
 	contacts map[string]map[string]string
 	version  map[string]int64
-	// race, when set, changes the card under the next PATCH once.
-	race bool
+	// race, when set, changes the card under the next PATCH once; always
+	// changes it under every PATCH.
+	race, always bool
 }
 
 func (f *fakePanel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -47,7 +56,7 @@ func (f *fakePanel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Version int64             `json:"version"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
-		if f.race {
+		if f.race || f.always {
 			f.race = false
 			c["email"] = "changed@elsewhere.io"
 			f.version[id]++
@@ -76,7 +85,7 @@ func open(t *testing.T) *gorm.DB {
 		t.Fatal(err)
 	}
 	if cfg.Driver == config.DriverPostgres {
-		gdb.Exec("TRUNCATE settings, users, channels, deliveries, attempts, sends, notices RESTART IDENTITY")
+		gdb.Exec("TRUNCATE settings, users, channels, deliveries, attempts, sends, notices, once_keys, chats, links, blocks RESTART IDENTITY")
 	}
 	return gdb
 }
@@ -320,5 +329,66 @@ func TestARubikaReader(t *testing.T) {
 	m.DB.First(&c)
 	if c.State.V["username"] != "notif_rubika_bot" {
 		t.Fatalf("state %v", c.State.V)
+	}
+}
+
+// TestStopTakesOnlyWhatNotifWrote: a chat another addon wrote to the card
+// (Shop's telegram_id) stays there when the user stops Notif's bot — the
+// bot is blocked from it instead — and linking the same chat through
+// Notif's bot again does not make it Notif's; a chat Notif's write put
+// there is taken off, and only while the card still holds it; a card that
+// keeps changing under every write is a conflict, not a success.
+func TestStopTakesOnlyWhatNotifWrote(t *testing.T) {
+	m, fp, bot, rep := setup(t)
+	ctx := context.Background()
+	fp.contacts["7"]["telegram_id"] = "900"
+	if _, err := m.Links.Users.One(ctx, 7); err != nil {
+		t.Fatal(err)
+	}
+	m.handleOn(ctx, 3, bot, msg(900, "/stop", "en"))
+	if fp.contacts["7"]["telegram_id"] != "900" || !strings.HasPrefix(rep.last(), "Disconnected") {
+		t.Fatalf("stop of a chat Shop wrote: %v %q", fp.contacts["7"], rep.last())
+	}
+	var b model.Block
+	if m.DB.First(&b).Error != nil || b.UserID != 7 || b.ChannelID != 3 || b.Value != "900" {
+		t.Fatalf("block %+v", b)
+	}
+	// Linking the same chat through Notif's bot lifts the block, but the
+	// card held it already: Notif wrote nothing, and the key stays Shop's.
+	m.handleOn(ctx, 3, bot, msg(900, "subid-ana-123", "en"))
+	if n := m.DB.Find(&[]model.Block{}).RowsAffected; n != 0 {
+		t.Fatalf("%d blocks after linking again", n)
+	}
+	if n := m.DB.Find(&[]model.Link{}).RowsAffected; n != 0 {
+		t.Fatalf("a chat the card held already was recorded as Notif's (%d)", n)
+	}
+	if ok, err := m.Links.Release(ctx, 7, "telegram_id", "900"); ok || err != nil {
+		t.Fatalf("a release of Shop's chat: %v %v", ok, err)
+	}
+	if fp.contacts["7"]["telegram_id"] != "900" {
+		t.Fatalf("Shop's chat left the card: %v", fp.contacts["7"])
+	}
+	// A chat Notif's write puts on the card is Notif's.
+	m.handleOn(ctx, 3, bot, msg(901, "subid-ana-123", "en"))
+	if ok, err := m.Links.Release(ctx, 7, "telegram_id", "900"); ok || err != nil {
+		t.Fatalf("a release of another chat: %v %v", ok, err)
+	}
+	if ok, err := m.Links.Release(ctx, 7, "telegram_id", "901"); !ok || err != nil {
+		t.Fatalf("release: %v %v", ok, err)
+	}
+	if _, ok := fp.contacts["7"]["telegram_id"]; ok {
+		t.Fatalf("the chat Notif wrote is still on the card: %v", fp.contacts["7"])
+	}
+	// So is a key Set writes; one Set finds there already is not.
+	fp.contacts["7"]["ntfy"] = "theirs"
+	if err := m.Links.Set(ctx, 7, "ntfy", "theirs"); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := m.Links.Release(ctx, 7, "ntfy", "theirs"); ok {
+		t.Fatal("Set recorded a key the card held already as Notif's")
+	}
+	fp.always = true
+	if err := m.Links.Set(ctx, 7, "ntfy", "notif-x"); !errors.Is(err, links.ErrConflict) {
+		t.Fatalf("a card that kept changing: %v", err)
 	}
 }

@@ -14,8 +14,10 @@ The documentation: [English](docs/en.md) · [فارسی](docs/fa.md) ·
 A user links a bot by sending it their subscription link (or the link code
 the admin hands out); the chat id is written into the account's contact
 card on the panel — `telegram_id`, `bale_id`, `soroush_id` or `rubika_id` — where every
-addon reads it, and `/stop` takes it away. Give Notif bots of its own: a
-bot's updates can be read by one program only.
+addon reads it, and `/stop` takes it away — a chat Notif linked, that is;
+one another addon wrote stays on the card, and Notif's bot stops writing to
+it. Give Notif bots of its own: a bot's updates can be read by one program
+only.
 
 Notif is separate software, as every Nexora addon is: its own container or
 service and its own database, talking to the panel over the network only,
@@ -34,8 +36,10 @@ sh install.sh --method docker --opt port=8097 --opt admin_password=… \
   --panel-url https://panel.example --claim-code …
 ```
 
-`--method script` installs the binary under systemd instead of Docker. Run
-the same command again to update; `--uninstall [--purge]` removes it.
+`--method script` installs the binary under systemd instead of Docker, as
+its own user with only its data directory writable, after checking the
+archive against the release's `SHA256SUMS`. Run the same command again to
+update; `--uninstall [--purge]` removes it.
 
 ## Back up
 

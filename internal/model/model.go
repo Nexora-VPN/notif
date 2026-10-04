@@ -45,6 +45,7 @@ func All() []any {
 	return []any{
 		&Admin{}, &Session{}, &Panel{}, &Setting{},
 		&User{}, &Channel{}, &Delivery{}, &Attempt{}, &Send{}, &Notice{},
+		&Once{}, &Chat{}, &Link{}, &Block{},
 	}
 }
 

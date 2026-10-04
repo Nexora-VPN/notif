@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 	"unicode/utf16"
-
-	"github.com/nexora-vpn/addon-kit/telegram"
 )
 
 // Rubika (P38 (b), GN-S2b): its own Bot API v3, not Telegram's —
@@ -34,7 +32,8 @@ func init() {
 		Fields: []Field{
 			{Key: "token", Secret: true, Required: true},
 			{Key: "apiBase", Default: RubikaAPI},
-			{Key: "proxy"},
+			{Key: "proxy", Secret: true},
+			privateField,
 		},
 		New: func(cfg map[string]string) (Sender, error) { return NewRubika(cfg) },
 	})
@@ -53,7 +52,7 @@ func NewRubika(cfg map[string]string) (*Rubika, error) {
 	if token == "" || strings.ContainsAny(token, "/ ?#") {
 		return nil, errors.New("the bot token is the one Rubika's BotFather gave, with no spaces or slashes")
 	}
-	client, err := telegram.HTTPClient(strings.TrimSpace(cfg["proxy"]))
+	client, err := botClient(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -171,12 +170,17 @@ func (r *Rubika) Send(ctx context.Context, to Recipient, m Message) error {
 	if chat == "" {
 		return ErrNoAddress
 	}
-	err := r.SendText(ctx, chat, m.Title, m.Text)
+	sctx, w := watchSend(ctx)
+	err := r.SendText(sctx, chat, m.Title, m.Text)
 	if err == nil {
 		return nil
 	}
 	var e *RubikaError
 	if !errors.As(err, &e) {
+		// No answer of the API's: the request may still have reached it.
+		if f := w.failure(err, "rubika", err.Error()); f != nil {
+			return f
+		}
 		return &Retry{Reason: err.Error()}
 	}
 	switch {

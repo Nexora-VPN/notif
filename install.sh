@@ -62,6 +62,9 @@ if [ "$UNINSTALL" = 1 ]; then
 		rm -f "/etc/systemd/system/${UNIT}.service"
 		systemctl daemon-reload
 	fi
+	if [ "$PURGE" = 1 ] && id "nexora-${SLUG}" >/dev/null 2>&1; then
+		userdel "nexora-${SLUG}" 2>/dev/null || deluser "nexora-${SLUG}" 2>/dev/null || true
+	fi
 	if [ -f "${DIR}/compose.yml" ] && command -v docker >/dev/null 2>&1; then
 		docker compose -f "${DIR}/compose.yml" --env-file "${DIR}/.env" down || true
 	fi
@@ -92,12 +95,29 @@ mkdir -p "${DIR}/data"
 chmod 700 "${DIR}"
 echo "$METHOD" >"${DIR}/.method"
 
+# envquote VALUE: the value as both readers of the .env take it literally —
+# systemd's EnvironmentFile and docker compose's env_file. Single quotes are
+# literal to both; a value holding one goes in double quotes, with \ and "
+# escaped, and for compose, which expands $ inside them, $ doubled.
+envquote() {
+	case "$1" in
+	*\'*) ;;
+	*)
+		printf "'%s'" "$1"
+		return
+		;;
+	esac
+	v="$(printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"
+	[ "$METHOD" != docker ] || v="$(printf '%s' "$v" | sed 's/\$/$$/g')"
+	printf '"%s"' "$v"
+}
+
 # setenv KEY VALUE: replace or add one line of the .env file.
 setenv() {
 	touch "${DIR}/.env"
 	chmod 600 "${DIR}/.env"
 	grep -v "^$1=" "${DIR}/.env" >"${DIR}/.env.tmp" || true
-	printf '%s=%s\n' "$1" "$2" >>"${DIR}/.env.tmp"
+	printf '%s=%s\n' "$1" "$(envquote "$2")" >>"${DIR}/.env.tmp"
 	mv "${DIR}/.env.tmp" "${DIR}/.env"
 	chmod 600 "${DIR}/.env" # the mv carries the temporary file's mode, not the 600 above
 }
@@ -121,15 +141,32 @@ script)
 	setenv NEXORA_DATA_DIR "${DIR}/data"
 	tmp="$(mktemp -d)"
 	trap 'rm -rf "$tmp"' EXIT
+	ARCHIVE="${BIN}-linux-${ARCH}.tar.gz"
 	if [ -n "$BINARY_FILE" ]; then
-		cp "$BINARY_FILE" "${tmp}/addon.tar.gz"
+		# An archive the operator brought is theirs to vouch for.
+		cp "$BINARY_FILE" "${tmp}/${ARCHIVE}"
 	else
-		curl -fsSL -o "${tmp}/addon.tar.gz" \
-			"https://github.com/${REPO}/releases/download/${VERSION}/${BIN}-linux-${ARCH}.tar.gz"
+		base="https://github.com/${REPO}/releases/download/${VERSION}"
+		curl -fsSL -o "${tmp}/${ARCHIVE}" "${base}/${ARCHIVE}"
+		# The release's checksums, or nothing is installed.
+		curl -fsSL -o "${tmp}/SHA256SUMS" "${base}/SHA256SUMS" || die "the release ${VERSION} has no SHA256SUMS; not installing an archive that cannot be checked"
+		grep " ${ARCHIVE}\$" "${tmp}/SHA256SUMS" >"${tmp}/expected" || die "SHA256SUMS of ${VERSION} does not list ${ARCHIVE}"
+		(cd "$tmp" && sha256sum -c expected >/dev/null) || die "${ARCHIVE} does not match the release's SHA256SUMS"
 	fi
-	tar -xzf "${tmp}/addon.tar.gz" -C "$tmp"
+	tar -xzf "${tmp}/${ARCHIVE}" -C "$tmp"
 	mkdir -p "${DIR}/bin"
 	install -m 755 "${tmp}/${BIN}" "${DIR}/bin/${BIN}"
+	# Its own user, owning only the data: the service reads its settings
+	# and writes its database, nothing else of the host.
+	if ! id "nexora-${SLUG}" >/dev/null 2>&1; then
+		useradd --system --no-create-home --home-dir "${DIR}" --shell /usr/sbin/nologin "nexora-${SLUG}" 2>/dev/null ||
+			adduser -S -H -h "${DIR}" -s /sbin/nologin "nexora-${SLUG}" ||
+			die "could not make the user nexora-${SLUG}"
+	fi
+	chown -R "nexora-${SLUG}" "${DIR}/data"
+	chmod 700 "${DIR}/data"
+	chown "nexora-${SLUG}" "${DIR}/.env"
+	chmod 755 "${DIR}" # the service user passes through to its data and .env
 	cat >"/etc/systemd/system/${UNIT}.service" <<UNIT
 [Unit]
 Description=Nexora addon ${SLUG}
@@ -137,11 +174,28 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
+User=nexora-${SLUG}
 EnvironmentFile=${DIR}/.env
 WorkingDirectory=${DIR}
 ExecStart=${DIR}/bin/${BIN}
 Restart=always
 RestartSec=3
+# Time for the sends in hand to finish on a stop (Notif waits up to 45s).
+TimeoutStopSec=60
+# A port under 1024 is the one privilege it keeps.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=${DIR}/data
 
 [Install]
 WantedBy=multi-user.target

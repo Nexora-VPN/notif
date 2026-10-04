@@ -27,7 +27,7 @@ sh install.sh --method docker --opt port=8097 --opt admin_password=… \
 
 三者使用同一种 Bot API。在各自的 BotFather 创建机器人并填入令牌。**请为 Notif 单独创建机器人**：一个机器人的更新只能由一个程序读取，Shop 或其他工具已在使用的令牌不能共用（若如此，渠道会提示）。
 
-- **Telegram** —— 位于伊朗或中国的服务器无法访问 `api.telegram.org`：请设置**代理**（`socks5://host:port`），或把 Bot API 镜像填为 API 地址。
+- **Telegram** —— 位于伊朗或中国的服务器无法访问 `api.telegram.org`：请设置**代理**（`socks5://host:port`），或把 Bot API 镜像填为 API 地址。位于本服务器、docker 宿主机或您局域网中的代理需先在安装时写明（**允许的机器人代理**；见下文“不是公网地址”）。
 - **Bale** —— Bale 用自己的 Markdown 显示所有消息，并会限制向非对话中用户发消息的机器人。其付费**商业 API** 专用于通知：Bale 商业账户充值后在渠道中开启即可。
 - **Soroush Plus** —— 与 Telegram 相同，地址为 `api.splus.ir`。
 
@@ -99,9 +99,18 @@ ntfy 是用户自行安装的推送应用，每人订阅自己的主题。在**�
 
 使用 SQLite 时，Notif 每天把数据库复制到 `<data>/backups`，保留最近七份。手动：`notif backup -o notif.db`；在 Notif 停止时执行 `notif restore -i notif.db`（被替换的数据库会保留在旁边）。使用 PostgreSQL 时请用 `pg_dump` 备份。
 
+从 Notif 0.1.0 升级：该版本在其账户副本中保存了每个账户的订阅链接（含其秘密部分）；更新版本首次启动时会从数据库中删除它们。升级前生成的每日副本仍保留这些链接，直到七天后过期——如需立即清除，请手动删除 `<data>/backups` 中的文件。
+
+从 Notif 0.1.0 升级，渠道部分：该版本会连接渠道所写的任何地址；更新版本只访问公网地址，仅在开启**地址在我自己的网络中**时访问私有网络，且仅在安装时写明的情况下使用其他位置的机器人代理（见下文“不是公网地址”）。首次启动会保留原本可用的配置：地址或代理位于私有网络的渠道——局域网或 Tailscale 地址、解析到此类地址的域名、`http://ntfy` 这样的容器名——会开启该开关；本服务器上的机器人代理（`socks5://127.0.0.1:10808`）在渠道的代理被修改之前继续可用。自身地址位于本服务器的渠道（`http://127.0.0.1:…`，或服务器网卡上的任何地址）现在无论开关如何都会被拒绝：Notif 从不向自己所在的服务器发送。请把这样的中继——本地的 postfix、ntfy——运行在您网络中的另一台机器上并开启该开关；在 docker 中，宿主机对 Notif 的容器而言是另一台机器，开启开关后可通过 `host.docker.internal` 访问（见“不是公网地址”）。之后要在安装时写明代理——新的代理，或修改后的保留代理——**脚本安装**：带上该选项重新运行安装（其他回答保持不变）：`sh install.sh --method script --opt local_proxies=127.0.0.1:10808`；或在 `/opt/nexora-addons/notif/.env` 中加入一行 `NEXORA_OPT_LOCAL_PROXIES='127.0.0.1:10808'` 并运行 `systemctl restart nexora-addon-notif`。**docker**：容器内的 127.0.0.1 是容器自身而非宿主机：请用宿主机在 docker 网络上的地址写明宿主机上的代理，`--opt local_proxies=host.docker.internal:10808`（compose 文件把 `host.docker.internal` 映射到宿主机），或在 `/opt/nexora-addons/notif/.env` 中写同一行后运行 `docker compose -f /opt/nexora-addons/notif/compose.yml --env-file /opt/nexora-addons/notif/.env up -d`。宿主机上的代理也必须监听该地址（`172.17.0.1`，或所有地址并用防火墙挡住外部），而不能只监听 127.0.0.1。
+
 ## 出现问题时
 
 - **机器人渠道提示其更新正被另一个程序读取** —— 该令牌已在别处使用（Shop、Webhook）：请为 Notif 创建独立的机器人。
 - **记录中出现“无地址”** —— 用户的联系信息中没有该渠道的地址；改走下一个渠道。
 - **“没有渠道送达该用户”** —— 所有渠道都已尝试；记录中的各次尝试说明了失败原因。
 - **某个账户没有任何通知入队** —— 没有已开启的渠道拥有其地址：请关联机器人，或在联系信息中添加电话或邮箱。
+- **渠道提示“不是公网地址”** —— 渠道的地址（HTTP 渠道、短信服务商或机器人的 API 地址、ntfy 服务器、邮件服务器）必须位于公共互联网；指向本服务器或私有网络的地址会被拒绝。本服务器指它的所有地址：回环地址以及其网络接口上的每个地址，包括公网地址。若中继或服务器是您自己的、位于私有网络中（局域网、WireGuard、Tailscale、与 Notif 同在的容器），请在渠道中开启**地址在我自己的网络中**；即便如此，本服务器自身的地址和云的元数据服务仍被拒绝。在 docker 中，“本服务器”是 Notif 的容器，它看不到宿主机的地址：开启该开关时，可经 docker 网络的网关（`172.17.0.1`、`host.docker.internal`）访问宿主机；无论开关如何，宿主机的公网地址都像其他公网地址一样可访问。机器人渠道自己的**代理**与其地址遵循同样的规则：公网地址，或在开启该开关时位于您自己的网络——或者安装时在**允许的机器人代理**选项（`NEXORA_OPT_LOCAL_PROXIES`）中写明了地址和端口的代理，无论位于何处：本服务器（`127.0.0.1:10808`）、docker 宿主机（`host.docker.internal:10808`）、您的局域网。链路本地地址和元数据服务永远不行。其他渠道使用的 Notif 环境变量 `HTTPS_PROXY` / `HTTP_PROXY` 由运维者设置，无论位于何处（包括本服务器）都会被使用。经由代理时，IP 地址按直连同样的规则判断，但域名由代理而非 Notif 解析：只拒绝本服务器的名称（`localhost`）、`.internal` 名称、元数据服务的名称、自身写明地址的名称（`nip.io`、`sslip.io` 等），以及开关关闭时不含点的名称。因此安装时写明的代理能访问它自己能访问的一切——仅在确有此意时写明。
+- **用户屏蔽或停止了机器人** —— 不再尝试该会话；只有当用户是通过 Notif 关联的，才会从联系信息中移除，其他插件（Shop）写入的会话不会被移除。
+- **记录中出现“未知”** —— 服务商已收到请求但回应丢失；可能已经发出，因此不会再次发送。
+- **脚本安装下运行命令** —— 请按服务的运行方式运行：使用服务的用户，并像 systemd 一样读取 `.env` 中的设置（包括带引号的值），使其写入的文件仍归该服务所有：
+  `sudo systemd-run --pipe --wait --quiet -p User=nexora-notif -p EnvironmentFile=/opt/nexora-addons/notif/.env /opt/nexora-addons/notif/bin/notif admin reset-password -user admin -pass …`。

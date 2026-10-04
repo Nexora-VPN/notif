@@ -106,6 +106,9 @@ const en = {
     deleteConfirm: 'Delete the channel {name}?',
     empty: 'No channels yet.',
     secretKept: 'Leave it as it is to keep the saved value.',
+    secretClear: 'Remove the saved value',
+    secretCleared: 'The saved value is removed when you save.',
+    secretUndo: 'Keep it',
     variables: 'Variables in the address and the body',
     problem: 'Problem',
     preset: 'Start from',
@@ -244,7 +247,7 @@ const en = {
     apiBaseHelp: 'The Bot API’s address. Change it only for a Bot API mirror.',
     proxy: 'Proxy',
     proxyHelp:
-      'socks5://host:port or http://host:port, for a server that cannot reach the API directly. Empty connects directly.',
+      'socks5://host:port or http://host:port, for a server that cannot reach the API directly. Empty connects directly. The proxy is held to the address’s rules: public, or on your own network with the switch below on; or one the install named (local_proxies) wherever it is — this server, the docker host, your LAN. A name sent through the proxy is looked up by the proxy.',
     business: 'Business API',
     businessHelp:
       'Bale slows a bot that writes to users who are not talking to it; its paid business API is for notices. On sends through it.',
@@ -267,6 +270,13 @@ const en = {
     caBundleHelp: 'Trust a provider’s private certificate. Empty uses the system’s.',
     priority: 'Priority',
     priorityHelp: 'ntfy’s 1 (min) to 5 (urgent).',
+    private: 'Address on my own network',
+    privateHelp:
+      'Off: the channel — its address and its proxy — reaches public addresses only. On: also a private network of yours (LAN, WireGuard, Tailscale, a container beside Notif). This server’s own addresses (its public one too) and the cloud’s metadata service stay refused either way. Under docker this server is Notif’s container: with this on, the host is reached at the docker network’s gateway (172.17.0.1, host.docker.internal). A bot’s proxy elsewhere is used only when the install named it.',
+    private_off: 'Off — public addresses only',
+    private_on: 'On — this address is on my own network',
+    privateWarn:
+      'Turn this on only for a relay or server you run yourself: anyone who can edit this channel can then make Notif reach addresses on that network, as the channel’s address or its proxy.',
   },
   users: {
     title: 'Accounts',
@@ -438,6 +448,44 @@ const en = {
     planNote: 'Where each goes is a forecast: a user who blocked a bot falls to the next channel.',
     sent: 'Sent messages',
   },
+  errors: {
+    bad_request: 'The request could not be read. Reload the page and try again.',
+    not_found: 'It is not there any more. Reload the page.',
+    signed_out: 'You are signed out. Sign in again.',
+    too_many_attempts: 'Too many failed sign-ins. Try again in a few minutes.',
+    wrong_credentials: 'Wrong username or password.',
+    login_expired: 'The sign-in has expired. Enter the password again.',
+    wrong_code: 'Wrong code.',
+    wrong_password: 'The password is wrong.',
+    password_short: 'A password is at least 10 characters.',
+    password_long:
+      'A password is at most 72 bytes (about 36 Persian or Russian letters, 24 Chinese).',
+    totp_on: 'Two-factor sign-in is already on.',
+    totp_not_started: 'Start the enrolment first.',
+    channel_name: 'A channel needs a name of up to 64 characters.',
+    channel_rate: 'The rate is 0 (the kind’s default) to 100000 a minute.',
+    channel_kind: 'Unknown channel kind.',
+    channel_kind_fixed: 'A channel’s kind cannot change; add a new channel.',
+    channel_order: 'The order must name every channel once.',
+    channel_settings: 'The channel’s settings do not work: {detail}',
+    field_required: '{field} is required.',
+    field_choice: '{field} is not one of its choices.',
+    account_unnamed: 'Name an account.',
+    account_not_found: 'No account named {name} on the panel.',
+    not_waiting: 'Only a delivery that is waiting can be cancelled.',
+    settings_invalid: 'These settings cannot work: {detail}',
+    unknown_language: 'Unknown language {lang}.',
+    text_too_long: 'A title is 200 characters at most and a text 4000.',
+    send_empty: 'Write the message.',
+    send_no_target: 'Name the accounts, or a group by the panel’s filters.',
+    send_both: 'Name the accounts or a group, not both.',
+    filter_unknown: '{filter} is not one of the panel’s filters.',
+    no_match: 'No account matches.',
+    not_registered: 'Notif is not registered with a panel yet.',
+    panel_failed: 'The panel did not answer as expected: {detail}',
+    card_conflict: 'The account’s contact card kept changing while it was written. Try again.',
+    unlink_only_messenger: 'Only a messenger link can be taken away here.',
+  },
 }
 
 type Messages = typeof en
@@ -545,6 +593,9 @@ const fa: Messages = {
     deleteConfirm: 'پیام‌رسان {name} حذف شود؟',
     empty: 'هنوز پیام‌رسانی نیست.',
     secretKept: 'اگر دست نزنید، مقدار ذخیره‌شده می‌ماند.',
+    secretClear: 'حذف مقدار ذخیره‌شده',
+    secretCleared: 'مقدار ذخیره‌شده با ذخیره حذف می‌شود.',
+    secretUndo: 'نگه‌داشتن',
     variables: 'متغیرهای نشانی و بدنه',
     problem: 'مشکل',
     preset: 'شروع از',
@@ -683,7 +734,7 @@ const fa: Messages = {
     apiBaseHelp: 'نشانی Bot API. فقط برای آینهٔ Bot API عوضش کنید.',
     proxy: 'پروکسی',
     proxyHelp:
-      'socks5://host:port یا http://host:port، برای سروری که مستقیم به API نمی‌رسد. خالی یعنی اتصال مستقیم.',
+      'socks5://host:port یا http://host:port، برای سروری که مستقیم به API نمی‌رسد. خالی یعنی اتصال مستقیم. پروکسی تابع همان قاعدهٔ نشانی است: عمومی، یا روی شبکهٔ خودتان وقتی گزینهٔ پایین روشن است؛ یا پروکسی‌ای که نصب نامش را برده (local_proxies)، هر کجا باشد — همین سرور، میزبان داکر، شبکهٔ محلی‌تان. نامی که از راه پروکسی فرستاده شود را خود پروکسی پیدا می‌کند.',
     business: 'API کسب‌وکار',
     businessHelp:
       'بله رباتی را که به کاربرانِ خارج از گفتگو پیام می‌دهد کند می‌کند؛ API پولی کسب‌وکار بله برای اعلان است. روشن یعنی ارسال از آن راه.',
@@ -706,6 +757,13 @@ const fa: Messages = {
     caBundleHelp: 'اعتماد به گواهی خصوصی یک سرویس. خالی یعنی گواهی‌های سیستم.',
     priority: 'اولویت',
     priorityHelp: 'اولویت ntfy از ۱ (کم) تا ۵ (فوری).',
+    private: 'نشانی روی شبکهٔ خودم',
+    privateHelp:
+      'خاموش: پیام‌رسان — نشانی و پروکسی‌اش — فقط به نشانی‌های عمومی می‌رسد. روشن: به شبکهٔ خصوصی شما هم (شبکهٔ محلی، WireGuard، Tailscale، کانتینری کنار نوتیف). نشانی‌های خود این سرور (نشانی عمومی‌اش هم) و سرویس متادیتای ابر در هر حال پذیرفته نمی‌شوند. در داکر این سرور کانتینر نوتیف است: با روشن بودن این گزینه میزبان از دروازهٔ شبکهٔ داکر (172.17.0.1، host.docker.internal) در دسترس است. پروکسیِ ربات در جای دیگر فقط وقتی به کار می‌رود که نصب نامش را برده باشد.',
+    private_off: 'خاموش — فقط نشانی‌های عمومی',
+    private_on: 'روشن — این نشانی روی شبکهٔ خودم است',
+    privateWarn:
+      'فقط برای واسط یا سروری که خودتان اداره می‌کنید روشنش کنید: هر کسی که بتواند این پیام‌رسان را ویرایش کند می‌تواند نوتیف را به نشانی‌های آن شبکه برساند، چه به‌عنوان نشانی پیام‌رسان و چه پروکسی‌اش.',
   },
   users: {
     title: 'حساب‌ها',
@@ -877,6 +935,43 @@ const fa: Messages = {
     planNote: 'مسیر هر پیام پیش‌بینی است: کاربری که رباتی را بلاک کرده به پیام‌رسان بعدی می‌رود.',
     sent: 'پیام‌های فرستاده‌شده',
   },
+  errors: {
+    bad_request: 'درخواست خوانده نشد. صفحه را تازه کنید و دوباره امتحان کنید.',
+    not_found: 'دیگر وجود ندارد. صفحه را تازه کنید.',
+    signed_out: 'از حساب بیرون آمده‌اید. دوباره وارد شوید.',
+    too_many_attempts: 'ورودهای ناموفق زیاد شد. چند دقیقهٔ دیگر امتحان کنید.',
+    wrong_credentials: 'نام کاربری یا رمز اشتباه است.',
+    login_expired: 'مهلت ورود تمام شد. رمز را دوباره وارد کنید.',
+    wrong_code: 'کد اشتباه است.',
+    wrong_password: 'رمز اشتباه است.',
+    password_short: 'رمز دست‌کم ۱۰ نویسه است.',
+    password_long: 'رمز حداکثر ۷۲ بایت است (حدود ۳۶ حرف فارسی یا روسی، ۲۴ حرف چینی).',
+    totp_on: 'ورود دومرحله‌ای از قبل روشن است.',
+    totp_not_started: 'اول فعال‌سازی را شروع کنید.',
+    channel_name: 'پیام‌رسان نامی تا ۶۴ نویسه می‌خواهد.',
+    channel_rate: 'سرعت از ۰ (پیش‌فرض نوع) تا ۱۰۰۰۰۰ در دقیقه است.',
+    channel_kind: 'نوع پیام‌رسان ناشناخته است.',
+    channel_kind_fixed: 'نوع پیام‌رسان عوض نمی‌شود؛ پیام‌رسان تازه‌ای اضافه کنید.',
+    channel_order: 'ترتیب باید هر پیام‌رسان را یک بار نام ببرد.',
+    channel_settings: 'تنظیمات پیام‌رسان کار نمی‌کند: {detail}',
+    field_required: '{field} لازم است.',
+    field_choice: '{field} یکی از گزینه‌هایش نیست.',
+    account_unnamed: 'نام یک حساب را بنویسید.',
+    account_not_found: 'حسابی به نام {name} در پنل نیست.',
+    not_waiting: 'فقط تحویلی که در انتظار است لغو می‌شود.',
+    settings_invalid: 'این تنظیمات کار نمی‌کند: {detail}',
+    unknown_language: 'زبان {lang} ناشناخته است.',
+    text_too_long: 'عنوان حداکثر ۲۰۰ نویسه و متن ۴۰۰۰ نویسه است.',
+    send_empty: 'متن پیام را بنویسید.',
+    send_no_target: 'حساب‌ها، یا گروهی با فیلترهای پنل، را مشخص کنید.',
+    send_both: 'یا حساب‌ها یا گروه، نه هر دو.',
+    filter_unknown: '{filter} از فیلترهای پنل نیست.',
+    no_match: 'هیچ حسابی پیدا نشد.',
+    not_registered: 'نوتیف هنوز در پنلی ثبت نشده است.',
+    panel_failed: 'پنل پاسخ درستی نداد: {detail}',
+    card_conflict: 'اطلاعات تماس حساب هنگام نوشتن مدام عوض شد. دوباره امتحان کنید.',
+    unlink_only_messenger: 'اینجا فقط اتصال پیام‌رسان برداشته می‌شود.',
+  },
 }
 
 const ru: Messages = {
@@ -982,6 +1077,9 @@ const ru: Messages = {
     deleteConfirm: 'Удалить канал {name}?',
     empty: 'Каналов пока нет.',
     secretKept: 'Оставьте как есть, чтобы сохранить прежнее значение.',
+    secretClear: 'Удалить сохранённое значение',
+    secretCleared: 'Сохранённое значение будет удалено при сохранении.',
+    secretUndo: 'Оставить',
     variables: 'Переменные адреса и тела',
     problem: 'Проблема',
     preset: 'Начать с',
@@ -1121,7 +1219,7 @@ const ru: Messages = {
     apiBaseHelp: 'Адрес Bot API. Меняйте только для зеркала Bot API.',
     proxy: 'Прокси',
     proxyHelp:
-      'socks5://host:port или http://host:port — для сервера, который не достаёт до API напрямую. Пусто — напрямую.',
+      'socks5://host:port или http://host:port — для сервера, который не достаёт до API напрямую. Пусто — напрямую. К прокси те же правила, что к адресу: публичный, или в вашей сети при включённом переключателе ниже; или названный установкой (local_proxies), где бы он ни был — этот сервер, хост docker, ваша LAN. Имя, отправленное через прокси, разрешает сам прокси.',
     business: 'Бизнес-API',
     businessHelp:
       'Bale замедляет бота, который пишет пользователям вне диалога; платный бизнес-API Bale предназначен для уведомлений. Включено — отправка через него.',
@@ -1144,6 +1242,13 @@ const ru: Messages = {
     caBundleHelp: 'Доверять частному сертификату сервиса. Пусто — системные.',
     priority: 'Приоритет',
     priorityHelp: 'Приоритет ntfy от 1 (низкий) до 5 (срочный).',
+    private: 'Адрес в моей сети',
+    privateHelp:
+      'Выкл.: канал — его адрес и его прокси — обращается только к публичным адресам. Вкл.: ещё и к вашей частной сети (LAN, WireGuard, Tailscale, контейнер рядом с Notif). Собственные адреса этого сервера (и публичный тоже) и сервис метаданных облака запрещены в любом случае. В docker этот сервер — контейнер Notif: при включённом переключателе хост достижим по шлюзу сети docker (172.17.0.1, host.docker.internal). Прокси бота в другом месте используется, только если его назвала установка.',
+    private_off: 'Выкл. — только публичные адреса',
+    private_on: 'Вкл. — этот адрес в моей сети',
+    privateWarn:
+      'Включайте только для посредника или сервера, которым управляете сами: любой, кто может изменить этот канал, сможет направить Notif к адресам этой сети — как адрес канала или его прокси.',
   },
   users: {
     title: 'Аккаунты',
@@ -1316,6 +1421,44 @@ const ru: Messages = {
       'Маршрут — прогноз: пользователь, заблокировавший бота, получит через следующий канал.',
     sent: 'Отправленные сообщения',
   },
+  errors: {
+    bad_request: 'Запрос не удалось прочитать. Обновите страницу и попробуйте снова.',
+    not_found: 'Этого больше нет. Обновите страницу.',
+    signed_out: 'Вы вышли из системы. Войдите снова.',
+    too_many_attempts: 'Слишком много неудачных входов. Попробуйте через несколько минут.',
+    wrong_credentials: 'Неверное имя пользователя или пароль.',
+    login_expired: 'Время входа истекло. Введите пароль ещё раз.',
+    wrong_code: 'Неверный код.',
+    wrong_password: 'Неверный пароль.',
+    password_short: 'Пароль — не меньше 10 символов.',
+    password_long:
+      'Пароль — не больше 72 байт (около 36 русских или персидских букв, 24 китайских).',
+    totp_on: 'Двухфакторный вход уже включён.',
+    totp_not_started: 'Сначала начните подключение.',
+    channel_name: 'Каналу нужно имя длиной до 64 символов.',
+    channel_rate: 'Скорость — от 0 (по умолчанию для типа) до 100000 в минуту.',
+    channel_kind: 'Неизвестный тип канала.',
+    channel_kind_fixed: 'Тип канала изменить нельзя; добавьте новый канал.',
+    channel_order: 'Порядок должен назвать каждый канал один раз.',
+    channel_settings: 'Настройки канала не работают: {detail}',
+    field_required: 'Поле {field} обязательно.',
+    field_choice: 'Значение {field} не из списка.',
+    account_unnamed: 'Укажите аккаунт.',
+    account_not_found: 'На панели нет аккаунта {name}.',
+    not_waiting: 'Отменить можно только ожидающую доставку.',
+    settings_invalid: 'Эти настройки не работают: {detail}',
+    unknown_language: 'Неизвестный язык {lang}.',
+    text_too_long: 'Заголовок — не больше 200 символов, текст — 4000.',
+    send_empty: 'Напишите сообщение.',
+    send_no_target: 'Укажите аккаунты или группу по фильтрам панели.',
+    send_both: 'Либо аккаунты, либо группа, не то и другое.',
+    filter_unknown: '{filter} — не фильтр панели.',
+    no_match: 'Ни один аккаунт не подходит.',
+    not_registered: 'Notif ещё не зарегистрирован на панели.',
+    panel_failed: 'Панель ответила не так, как ожидалось: {detail}',
+    card_conflict: 'Карточка аккаунта менялась во время записи. Попробуйте снова.',
+    unlink_only_messenger: 'Здесь можно убрать только привязку мессенджера.',
+  },
 }
 
 const zh: Messages = {
@@ -1421,6 +1564,9 @@ const zh: Messages = {
     deleteConfirm: '删除渠道 {name}？',
     empty: '还没有渠道。',
     secretKept: '保持不变即保留已保存的值。',
+    secretClear: '删除已保存的值',
+    secretCleared: '保存时将删除已保存的值。',
+    secretUndo: '保留',
     variables: '地址与正文中的变量',
     problem: '问题',
     preset: '从预设开始',
@@ -1557,7 +1703,8 @@ const zh: Messages = {
     apiBase: 'API 地址',
     apiBaseHelp: 'Bot API 的地址，仅在使用 Bot API 镜像时修改。',
     proxy: '代理',
-    proxyHelp: 'socks5://host:port 或 http://host:port，用于无法直连 API 的服务器。留空为直连。',
+    proxyHelp:
+      'socks5://host:port 或 http://host:port，用于无法直连 API 的服务器。留空为直连。代理与地址遵循同样的规则：公网地址，或在开启下方开关时位于您自己的网络；或安装时列出的代理（local_proxies），无论位于何处——本服务器、docker 宿主机、您的局域网。经代理发送的域名由代理解析。',
     business: '商业 API',
     businessHelp:
       'Bale 会限制向非对话中用户发消息的机器人；其付费商业 API 专用于通知。开启后通过它发送。',
@@ -1579,6 +1726,13 @@ const zh: Messages = {
     caBundleHelp: '信任服务商的私有证书。留空则使用系统证书。',
     priority: '优先级',
     priorityHelp: 'ntfy 优先级，1（最低）到 5（紧急）。',
+    private: '地址在我自己的网络中',
+    privateHelp:
+      '关：渠道（其地址及代理）只访问公网地址。开：也可访问您自己的私有网络（局域网、WireGuard、Tailscale、与 Notif 同在的容器）。本服务器自身的地址（包括其公网地址）和云的元数据服务始终被拒绝。在 docker 中本服务器是 Notif 的容器：开启时可经 docker 网络的网关（172.17.0.1、host.docker.internal）访问宿主机。其他位置的机器人代理仅在安装时列出才会使用。',
+    private_off: '关 — 仅公网地址',
+    private_on: '开 — 此地址在我自己的网络中',
+    privateWarn:
+      '仅在中继或服务器由您自己运营时开启：任何能编辑此渠道的人都可以让 Notif 访问该网络中的地址，无论作为渠道地址还是其代理。',
   },
   users: {
     title: '账户',
@@ -1745,6 +1899,43 @@ const zh: Messages = {
     planNote: '每条消息的渠道为预测：屏蔽了机器人的用户会改走下一个渠道。',
     sent: '已发送的消息',
   },
+  errors: {
+    bad_request: '无法读取请求。请刷新页面后重试。',
+    not_found: '该项已不存在。请刷新页面。',
+    signed_out: '您已退出登录。请重新登录。',
+    too_many_attempts: '登录失败次数过多。请几分钟后再试。',
+    wrong_credentials: '用户名或密码错误。',
+    login_expired: '登录已过期。请重新输入密码。',
+    wrong_code: '验证码错误。',
+    wrong_password: '密码错误。',
+    password_short: '密码至少 10 个字符。',
+    password_long: '密码最多 72 字节（约 36 个波斯文或俄文字母，24 个汉字）。',
+    totp_on: '两步验证已开启。',
+    totp_not_started: '请先开始绑定。',
+    channel_name: '渠道需要一个不超过 64 个字符的名称。',
+    channel_rate: '速率为每分钟 0（该类型的默认值）到 100000。',
+    channel_kind: '未知的渠道类型。',
+    channel_kind_fixed: '渠道类型不能更改；请添加新渠道。',
+    channel_order: '顺序必须包含每个渠道且仅一次。',
+    channel_settings: '渠道设置无法使用：{detail}',
+    field_required: '{field} 为必填项。',
+    field_choice: '{field} 不在可选值中。',
+    account_unnamed: '请填写账户名。',
+    account_not_found: '面板上没有名为 {name} 的账户。',
+    not_waiting: '只能取消等待中的送达。',
+    settings_invalid: '这些设置无法使用：{detail}',
+    unknown_language: '未知语言 {lang}。',
+    text_too_long: '标题最多 200 个字符，正文最多 4000 个字符。',
+    send_empty: '请填写消息内容。',
+    send_no_target: '请指定账户，或按面板筛选条件指定一组账户。',
+    send_both: '请指定账户或一组账户，不能同时指定。',
+    filter_unknown: '{filter} 不是面板的筛选条件。',
+    no_match: '没有匹配的账户。',
+    not_registered: 'Notif 尚未在面板上注册。',
+    panel_failed: '面板的回应不符合预期：{detail}',
+    card_conflict: '写入时账户的联系信息不断变化。请重试。',
+    unlink_only_messenger: '这里只能移除消息应用的关联。',
+  },
 }
 
 export const locales = [
@@ -1773,6 +1964,20 @@ export const i18n = createI18n({
   fallbackLocale: 'en',
   messages: { en, fa, ru, zh },
 })
+
+// fieldText is a channel field's words: the kind's own, else the ones the
+// kinds share (fields.*), else fallback.
+export function fieldText(kind: string, key: string, fallback: string) {
+  const { t, te } = i18n.global
+  if (te('kinds.' + kind + '.' + key)) return t('kinds.' + kind + '.' + key)
+  if (te('fields.' + key)) return t('fields.' + key)
+  return fallback
+}
+
+// fieldLabel is a channel field's label, as the channel form shows it.
+export function fieldLabel(kind: string, key: string) {
+  return fieldText(kind, key, key)
+}
 
 export function setLocale(code: Locale) {
   i18n.global.locale.value = code

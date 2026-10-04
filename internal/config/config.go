@@ -34,6 +34,10 @@ type Config struct {
 	// ManifestFile is served instead of the built-in manifest when set (a
 	// development-signed copy, for a walk).
 	ManifestFile string
+	// LocalProxies are the proxies a bot channel may name wherever they are
+	// (channel.SetLocalProxies): the operator's to allow, never the admin
+	// web's.
+	LocalProxies string
 }
 
 // Load reads the environment.
@@ -46,6 +50,7 @@ func Load() (Config, error) {
 		AdminUsername: option("admin_username", "admin"),
 		AdminPassword: addon.Option("admin_password"),
 		ManifestFile:  os.Getenv("NEXORA_MANIFEST_FILE"),
+		LocalProxies:  strings.TrimSpace(addon.Option("local_proxies")),
 	}
 	switch c.Driver {
 	case DriverSQLite:

@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/nexora-vpn/notif/internal/model"
 	"github.com/nexora-vpn/notif/internal/notices"
@@ -51,16 +51,16 @@ type sendBody struct {
 func (b *sendBody) check(needText bool) error {
 	b.Title, b.Body = strings.TrimSpace(b.Title), strings.TrimSpace(b.Body)
 	if needText && b.Body == "" {
-		return errors.New("write the message")
+		return codedErr("send_empty", "write the message")
 	}
-	if len(b.Title) > 200 || len(b.Body) > 4000 {
-		return errors.New("a title is 200 characters at most and a message 4000")
+	if utf8.RuneCountInString(b.Title) > 200 || utf8.RuneCountInString(b.Body) > 4000 {
+		return codedErr("text_too_long", "a title is 200 characters at most and a message 4000")
 	}
 	if len(b.UserIDs) == 0 && len(b.Filter) == 0 {
-		return errors.New("name the accounts, or a group by the panel's filters")
+		return codedErr("send_no_target", "name the accounts, or a group by the panel's filters")
 	}
 	if len(b.UserIDs) > 0 && len(b.Filter) > 0 {
-		return errors.New("name the accounts or a group, not both")
+		return codedErr("send_both", "name the accounts or a group, not both")
 	}
 	for k, v := range b.Filter {
 		known := false
@@ -68,7 +68,7 @@ func (b *sendBody) check(needText bool) error {
 			known = known || f == k
 		}
 		if !known {
-			return fmt.Errorf("%q is not one of the panel's filters", k)
+			return codedErr("filter_unknown", fmt.Sprintf("%q is not one of the panel's filters", k), "filter", k)
 		}
 		if strings.TrimSpace(v) == "" {
 			delete(b.Filter, k)
@@ -84,7 +84,7 @@ func (s *Server) recipients(ctx context.Context, b sendBody) ([]model.User, erro
 	if len(b.Filter) > 0 {
 		p := s.panelClient()
 		if p == nil {
-			return nil, errors.New("not registered with a panel")
+			return nil, codedErr("not_registered", "not registered with a panel")
 		}
 		q := url.Values{}
 		for k, v := range b.Filter {
@@ -196,16 +196,16 @@ func (s *Server) plan(us []model.User) (plan, map[uint]bool) {
 func (s *Server) handleSendPreview(w http.ResponseWriter, r *http.Request, _ model.Admin) {
 	var b sendBody
 	if err := decode(r, &b); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	if err := b.check(false); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		fail(w, http.StatusBadRequest, err)
 		return
 	}
 	us, err := s.recipients(r.Context(), b)
 	if err != nil {
-		writeErr(w, http.StatusBadGateway, err.Error())
+		fail(w, http.StatusBadGateway, err)
 		return
 	}
 	p, _ := s.plan(us)
@@ -213,7 +213,13 @@ func (s *Server) handleSendPreview(w http.ResponseWriter, r *http.Request, _ mod
 		cfg := s.deliverySettings()
 		u := us[0]
 		lang := notices.Language(u, cfg.Language)
-		m := notices.Load(s.db).Render(model.Delivery{Kind: notices.KindCustom, Title: b.Title, Body: b.Body}, u, model.Channel{}, lang)
+		d := model.Delivery{Kind: notices.KindCustom, Title: b.Title, Body: b.Body}
+		book := notices.Load(s.db)
+		if book.NamesSubURL(d, model.Channel{}, lang) {
+			// The copy keeps no link; the preview reads it as the send will.
+			u.SubURL, _ = s.subURL(r.Context(), u.ID)
+		}
+		m := book.Render(d, u, model.Channel{}, lang)
 		p.Preview = &model.Text{Title: m.Title, Body: m.Text}
 	}
 	writeJSON(w, http.StatusOK, p)
@@ -222,20 +228,20 @@ func (s *Server) handleSendPreview(w http.ResponseWriter, r *http.Request, _ mod
 func (s *Server) handleSendCreate(w http.ResponseWriter, r *http.Request, a model.Admin) {
 	var b sendBody
 	if err := decode(r, &b); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	if err := b.check(true); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		fail(w, http.StatusBadRequest, err)
 		return
 	}
 	us, err := s.recipients(r.Context(), b)
 	if err != nil {
-		writeErr(w, http.StatusBadGateway, err.Error())
+		fail(w, http.StatusBadGateway, err)
 		return
 	}
 	if len(us) == 0 {
-		writeErr(w, http.StatusBadRequest, "no account matches")
+		writeCode(w, http.StatusBadRequest, "no_match", "no account matches")
 		return
 	}
 	p, reach := s.plan(us)
@@ -340,12 +346,12 @@ func (s *Server) handleSends(w http.ResponseWriter, _ *http.Request, _ model.Adm
 func (s *Server) handleSend(w http.ResponseWriter, r *http.Request, _ model.Admin) {
 	id, err := pathID(r)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeCode(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 	var sd model.Send
 	if s.db.First(&sd, id).Error != nil {
-		writeErr(w, http.StatusNotFound, "no such message")
+		notFound(w, "no such message")
 		return
 	}
 	writeJSON(w, http.StatusOK, s.report(sd))
@@ -355,12 +361,12 @@ func (s *Server) handleSend(w http.ResponseWriter, r *http.Request, _ model.Admi
 func (s *Server) handleSendCancel(w http.ResponseWriter, r *http.Request, _ model.Admin) {
 	id, err := pathID(r)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeCode(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 	var sd model.Send
 	if s.db.First(&sd, id).Error != nil {
-		writeErr(w, http.StatusNotFound, "no such message")
+		notFound(w, "no such message")
 		return
 	}
 	s.db.Model(&model.Delivery{}).Where("send_id = ? AND status IN ?", id, []string{model.DeliveryQueued, model.DeliveryHeld}).
@@ -373,7 +379,7 @@ func (s *Server) handleSendCancel(w http.ResponseWriter, r *http.Request, _ mode
 func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request, _ model.Admin) {
 	id, err := pathID(r)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeCode(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 	var ds []model.Delivery

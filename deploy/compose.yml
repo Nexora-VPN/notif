@@ -6,7 +6,14 @@ services:
     image: ghcr.io/nexora-vpn/notif:${NEXORA_ADDON_VERSION:-latest}
     container_name: notif
     restart: unless-stopped
+    # Time for the sends in hand to finish on a stop (Notif waits up to 45s).
+    stop_grace_period: 60s
     env_file: .env
+    # A proxy on the host is reached from the container at
+    # host.docker.internal (the docker host's gateway): name it in
+    # local_proxies as host.docker.internal:PORT.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${NEXORA_OPT_PORT:-8097}:${NEXORA_OPT_PORT:-8097}"
     volumes:

@@ -90,12 +90,12 @@ type botLink struct {
 func (s *Server) handleUser(w http.ResponseWriter, r *http.Request, _ model.Admin) {
 	id, err := pathID(r)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeCode(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 	var u model.User
 	if s.db.First(&u, id).Error != nil || u.GoneAt > 0 {
-		writeErr(w, http.StatusNotFound, "no such account")
+		notFound(w, "no such account")
 		return
 	}
 	code := s.links.Code(u.ID)
@@ -137,12 +137,12 @@ func (s *Server) handleUser(w http.ResponseWriter, r *http.Request, _ model.Admi
 func (s *Server) handleNtfy(w http.ResponseWriter, r *http.Request, _ model.Admin) {
 	id, err := pathID(r)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeCode(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 	topic := s.links.NtfyTopic(id)
 	if err := s.links.Set(r.Context(), id, "ntfy", topic); err != nil {
-		writeErr(w, http.StatusBadGateway, err.Error())
+		fail(w, http.StatusBadGateway, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"topic": topic})
@@ -151,14 +151,14 @@ func (s *Server) handleNtfy(w http.ResponseWriter, r *http.Request, _ model.Admi
 func (s *Server) handleUnlink(w http.ResponseWriter, r *http.Request, _ model.Admin) {
 	id, err := pathID(r)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeCode(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 	var b struct {
 		Key string `json:"key"`
 	}
 	if err := decode(r, &b); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	ok := false
@@ -166,11 +166,11 @@ func (s *Server) handleUnlink(w http.ResponseWriter, r *http.Request, _ model.Ad
 		ok = ok || k == b.Key
 	}
 	if !ok {
-		writeErr(w, http.StatusBadRequest, "only a messenger link can be taken away here")
+		writeCode(w, http.StatusBadRequest, "unlink_only_messenger", "only a messenger link can be taken away here")
 		return
 	}
 	if err := s.links.Set(r.Context(), id, b.Key, ""); err != nil {
-		writeErr(w, http.StatusBadGateway, err.Error())
+		fail(w, http.StatusBadGateway, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

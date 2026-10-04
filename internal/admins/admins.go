@@ -91,11 +91,11 @@ func Of(gdb *gorm.DB, token string) (model.Admin, error) {
 }
 
 // End deletes a session.
-func End(gdb *gorm.DB, token string) {
-	gdb.Where("token_hash = ?", auth.HashToken(token)).Delete(&model.Session{})
+func End(gdb *gorm.DB, token string) error {
+	return gdb.Where("token_hash = ?", auth.HashToken(token)).Delete(&model.Session{}).Error
 }
 
 // EndOthers ends every session of an admin but the one with keep's token.
-func EndOthers(gdb *gorm.DB, adminID uint, keep string) {
-	gdb.Where("admin_id = ? AND token_hash <> ?", adminID, auth.HashToken(keep)).Delete(&model.Session{})
+func EndOthers(gdb *gorm.DB, adminID uint, keep string) error {
+	return gdb.Where("admin_id = ? AND token_hash <> ?", adminID, auth.HashToken(keep)).Delete(&model.Session{}).Error
 }

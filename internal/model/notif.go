@@ -27,15 +27,20 @@ type User struct {
 	ActivatedAt int64  `json:"activatedAt" gorm:"not null;default:0"`
 	Group       string `json:"group" gorm:"not null;default:''"`
 	AdminID     uint   `json:"adminId" gorm:"index;not null;default:0"`
-	SubURL      string `json:"subUrl" gorm:"not null;default:''"`
+	// SubURL is the subscription link, never stored: it carries the
+	// subscription's secret, so it is read from the panel when a notice
+	// that names it is sent (internal/outbox) and lives only that long.
+	SubURL string `json:"-" gorm:"-"`
 	// SubIDHash and SubTokenHash are hashes of the subscription's id and
 	// token, so a user who sends a bot their subscription link is found
 	// without Notif keeping the link's secret part.
 	SubIDHash    string `json:"-" gorm:"index;not null;default:''"`
 	SubTokenHash string `json:"-" gorm:"index;not null;default:''"`
-	// UpdatedAt is the panel's; SeenAt is when this copy was last refreshed;
-	// GoneAt is when the panel said the account was deleted.
-	UpdatedAt int64 `json:"updatedAt" gorm:"not null;default:0"`
+	// UpdatedAt is the panel's, as it sent it (never Notif's own clock: a
+	// read compares it with the copy's to keep the later state); SeenAt is
+	// when this copy was last refreshed; GoneAt is when the panel said the
+	// account was deleted.
+	UpdatedAt int64 `json:"updatedAt" gorm:"not null;default:0;autoUpdateTime:false"`
 	SeenAt    int64 `json:"seenAt" gorm:"not null;default:0"`
 	GoneAt    int64 `json:"goneAt" gorm:"index;not null;default:0"`
 }
@@ -86,6 +91,11 @@ type Delivery struct {
 	// the same key is not queued.
 	Key    string `json:"key" gorm:"uniqueIndex;not null"`
 	UserID uint   `json:"userId" gorm:"index;not null"`
+	// Lasting keeps the key in model.Once long after the log forgets the
+	// delivery — a schedule line's, which must not be crossed twice. Any
+	// other key is once-only while its delivery is in the log. It is not
+	// stored with the delivery.
+	Lasting bool `json:"-" gorm:"-"`
 	// Kind names the notice ("renewed", "expiring", "custom", "test"); its
 	// text is rendered at send time for the channel and the language.
 	Kind string                  `json:"kind" gorm:"index;not null"`
@@ -165,4 +175,49 @@ type Notice struct {
 	Enabled bool                             `json:"enabled" gorm:"not null"`
 	Urgent  bool                             `json:"urgent" gorm:"not null;default:false"`
 	Texts   JSON[map[string]map[string]Text] `json:"texts"`
+}
+
+// Once is a schedule line's once-only key (Delivery.Lasting), kept apart
+// from the log: the log is pruned after the admin's retention, the keys
+// long after any schedule line could be crossed again (outbox.Prune), so a
+// line the log has forgotten is not crossed a second time.
+type Once struct {
+	Key string `gorm:"primaryKey"`
+	At  int64  `gorm:"index;not null"`
+}
+
+// TableName keeps the table's name readable.
+func (Once) TableName() string { return "once_keys" }
+
+// Chat is one messenger chat an account's contact card names — its
+// telegram_id, bale_id, soroush_id or rubika_id, whoever wrote it — kept
+// beside the copy (internal/users keeps it in step) so a chat that writes
+// /stop finds its accounts by an index.
+type Chat struct {
+	UserID uint   `gorm:"primaryKey;autoIncrement:false"`
+	Key    string `gorm:"primaryKey;index:idx_chats_value,priority:1"`
+	Value  string `gorm:"not null;index:idx_chats_value,priority:2"`
+}
+
+// Link is a contact key Notif itself wrote to an account's card — a chat
+// the user linked through Notif's bot, the ntfy topic the admin turned on —
+// with the value written. Only these are Notif's to take away: a key
+// another addon wrote (Shop's telegram_id for its own bot) is never
+// cleared by Notif.
+type Link struct {
+	UserID uint   `gorm:"primaryKey;autoIncrement:false"`
+	Key    string `gorm:"primaryKey"`
+	Value  string `gorm:"not null"`
+	At     int64  `gorm:"not null"`
+}
+
+// Block is a channel that no longer reaches an account at an address: the
+// user blocked or stopped the bot, or never started it. It holds while the
+// account's address on that channel is still Value; linking again lifts it.
+type Block struct {
+	UserID    uint   `gorm:"primaryKey;autoIncrement:false"`
+	ChannelID uint   `gorm:"primaryKey;autoIncrement:false"`
+	Value     string `gorm:"not null"`
+	Reason    string `gorm:"type:text;not null;default:''"`
+	At        int64  `gorm:"not null"`
 }

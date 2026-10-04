@@ -31,6 +31,7 @@ func init() {
 			{Key: "template", Required: true},
 			{Key: "variables", Multiline: true, Default: "token={name}"},
 			{Key: "apiBase", Default: "https://api.kavenegar.com/v1"},
+			privateField,
 		},
 		New: newKavenegar,
 	})
@@ -43,6 +44,7 @@ func init() {
 			{Key: "variables", Multiline: true, Default: "name={name}"},
 			{Key: "maxLengths", Multiline: true},
 			{Key: "apiBase", Default: "https://api.iranpayamak.com"},
+			privateField,
 		},
 		New: newFaraz,
 	})
@@ -86,6 +88,7 @@ type kavenegar struct {
 	key, template, base string
 	assign              [][2]string
 	client              *http.Client
+	hide                func(string) string
 }
 
 var kavenegarTokens = map[string]int{"token": 0, "token2": 0, "token3": 0, "token10": 5, "token20": 8}
@@ -104,9 +107,10 @@ func newKavenegar(cfg map[string]string) (Sender, error) {
 			return nil, fmt.Errorf("Kavenegar's variables are token, token2, token3, token10 and token20, not %q", a[0])
 		}
 	}
+	key := strings.TrimSpace(cfg["apiKey"])
 	return &kavenegar{
-		key: strings.TrimSpace(cfg["apiKey"]), template: strings.TrimSpace(cfg["template"]), base: base,
-		assign: assign, client: &http.Client{Timeout: 20 * time.Second},
+		key: key, template: strings.TrimSpace(cfg["template"]), base: base,
+		assign: assign, client: providerClient(nil, cfg), hide: hider(key),
 	}, nil
 }
 
@@ -142,12 +146,12 @@ func (k *kavenegar) Send(ctx context.Context, to Recipient, m Message) error {
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, k.base+"/"+url.PathEscape(k.key)+"/verify/lookup.json", strings.NewReader(form.Encode()))
 	if err != nil {
-		return &Refused{Reason: err.Error()}
+		return &Refused{Reason: k.hide(err.Error())}
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := k.client.Do(req)
+	resp, err := do(k.client, req, "kavenegar", k.hide)
 	if err != nil {
-		return &Retry{Reason: "kavenegar: " + strings.ReplaceAll(err.Error(), k.key, "<key>")}
+		return err
 	}
 	defer resp.Body.Close()
 	var ans struct {
@@ -161,7 +165,9 @@ func (k *kavenegar) Send(ctx context.Context, to Recipient, m Message) error {
 	if status == 0 {
 		status = resp.StatusCode
 	}
-	reason := fmt.Sprintf("kavenegar %d: %s", status, ans.Return.Message)
+	// The provider's own status and its short message are kept, never the
+	// body as it came.
+	reason := k.hide(fmt.Sprintf("kavenegar %d: %s", status, clip(strings.TrimSpace(ans.Return.Message), 120)))
 	switch {
 	case status == 200:
 		return nil
@@ -187,6 +193,7 @@ type faraz struct {
 	assign                [][2]string
 	max                   map[string]int
 	client                *http.Client
+	hide                  func(string) string
 }
 
 func newFaraz(cfg map[string]string) (Sender, error) {
@@ -210,9 +217,10 @@ func newFaraz(cfg map[string]string) (Sender, error) {
 		}
 		max[l[0]] = n
 	}
+	key := strings.TrimSpace(cfg["apiKey"])
 	return &faraz{
-		key: strings.TrimSpace(cfg["apiKey"]), code: strings.TrimSpace(cfg["code"]), line: strings.TrimSpace(cfg["lineNumber"]),
-		base: base, assign: assign, max: max, client: &http.Client{Timeout: 20 * time.Second},
+		key: key, code: strings.TrimSpace(cfg["code"]), line: strings.TrimSpace(cfg["lineNumber"]),
+		base: base, assign: assign, max: max, client: providerClient(nil, cfg), hide: hider(key),
 	}, nil
 }
 
@@ -236,13 +244,13 @@ func (f *faraz) Send(ctx context.Context, to Recipient, m Message) error {
 	})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, f.base+"/ws/v1/sms/pattern", bytes.NewReader(body))
 	if err != nil {
-		return &Refused{Reason: err.Error()}
+		return &Refused{Reason: f.hide(err.Error())}
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Api-Key", f.key)
-	resp, err := f.client.Do(req)
+	resp, err := do(f.client, req, "faraz", f.hide)
 	if err != nil {
-		return &Retry{Reason: "faraz: " + err.Error()}
+		return err
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
@@ -250,7 +258,11 @@ func (f *faraz) Send(ctx context.Context, to Recipient, m Message) error {
 		Status string `json:"status"`
 	}
 	_ = json.Unmarshal(raw, &ans)
-	reason := fmt.Sprintf("faraz HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(raw)))
+	// The status line and the answer's status word, never the body.
+	reason := statusLine("faraz", resp)
+	if ans.Status != "" {
+		reason += ": " + clip(ans.Status, 40)
+	}
 	switch {
 	case resp.StatusCode/100 == 2 && ans.Status == "success":
 		return nil
@@ -259,6 +271,6 @@ func (f *faraz) Send(ctx context.Context, to Recipient, m Message) error {
 	case resp.StatusCode >= 500:
 		return &Retry{Reason: reason}
 	default:
-		return &Refused{Reason: clip(reason, 500)}
+		return &Refused{Reason: reason}
 	}
 }

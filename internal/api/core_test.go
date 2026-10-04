@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nexora-vpn/notif/internal/channel"
 	"github.com/nexora-vpn/notif/internal/model"
 )
 
@@ -159,5 +160,81 @@ func TestChangingTheQuietHoursLooksAgain(t *testing.T) {
 	gdb.First(&d)
 	if d.Status != model.DeliveryQueued || d.NextAt > 4000000000 {
 		t.Fatalf("held delivery after the quiet hours went off: %+v", d)
+	}
+}
+
+// TestLimitsCountCharacters, a title alone is a text of its own, and a
+// saved secret can be taken away: a 4000-letter Persian message is within
+// its limit; a notice's override with only a title is kept; a secret named
+// in clear is emptied while one sent empty is kept.
+func TestLimitsCountCharacters(t *testing.T) {
+	_, gdb, h := newServer(t)
+	c := session(t, call(t, h, "POST", "/api/login", `{"username":"admin","password":"correct horse"}`))
+	gdb.Create(&model.User{ID: 1, Name: "ana", Contact: model.JSON[map[string]string]{V: map[string]string{}}})
+	long := strings.Repeat("س", 4000)
+	if w := call(t, h, "POST", "/api/sends/preview", `{"userIds":[1],"title":"`+strings.Repeat("ع", 200)+`","body":"`+long+`"}`, c); w.Code != http.StatusOK {
+		t.Fatalf("4000 Persian letters: %d %s", w.Code, w.Body)
+	}
+	if w := call(t, h, "POST", "/api/sends/preview", `{"userIds":[1],"body":"`+long+`س"}`, c); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), `"code":"text_too_long"`) {
+		t.Fatalf("4001: %d %s", w.Code, w.Body)
+	}
+	if w := call(t, h, "PUT", "/api/notices/renewed", `{"enabled":true,"texts":{"fa":{"":{"title":"`+strings.Repeat("ت", 200)+`","body":""}}}}`, c); w.Code != http.StatusNoContent {
+		t.Fatalf("a title alone: %d %s", w.Code, w.Body)
+	}
+	var n model.Notice
+	gdb.First(&n, "kind = ?", "renewed")
+	if n.Texts.V["fa"][""].Title != strings.Repeat("ت", 200) {
+		t.Fatalf("the title alone was dropped: %+v", n.Texts.V)
+	}
+	cfg := `"config":{"url":"https://sms.example.com/send","secret":"k3y","basicPassword":"pw"}`
+	call(t, h, "POST", "/api/channels", `{"kind":"http","name":"sms","enabled":true,`+cfg+`}`, c)
+	w := call(t, h, "PUT", "/api/channels/1", `{"name":"sms","enabled":true,"config":{"url":"https://sms.example.com/send","secret":"","basicPassword":""},"clear":["secret"]}`, c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("clear: %d %s", w.Code, w.Body)
+	}
+	var ch model.Channel
+	gdb.First(&ch, 1)
+	if ch.Config.V["secret"] != "" || ch.Config.V["basicPassword"] != "pw" {
+		t.Fatalf("after clearing the secret: %v", ch.Config.V)
+	}
+	if w := call(t, h, "POST", "/api/channels", `{"kind":"smtp","name":"mail","config":{}}`, c); !strings.Contains(w.Body.String(), `"code":"field_required"`) || !strings.Contains(w.Body.String(), `"field":"host"`) || !strings.Contains(w.Body.String(), `"kind":"smtp"`) {
+		t.Fatalf("a missing field: %s", w.Body)
+	}
+}
+
+// TestAKeptProxyGoesWithAnEdit: a bot's proxy on this server carried over
+// from 0.1.0 stays allowed through an edit that leaves the proxy alone,
+// is not something a request can set, and goes when the proxy changes.
+func TestAKeptProxyGoesWithAnEdit(t *testing.T) {
+	_, gdb, h := newServer(t)
+	c := session(t, call(t, h, "POST", "/api/login", `{"username":"admin","password":"correct horse"}`))
+	gdb.Create(&model.Channel{Kind: "telegram", Name: "bot", Config: model.JSON[map[string]string]{V: map[string]string{
+		"token": "1:a", "apiBase": "https://api.telegram.org", "proxy": "socks5://127.0.0.1:10808", "private": "off",
+		channel.KeptProxy: "socks5://127.0.0.1:10808",
+	}}})
+	kept := func() string {
+		var ch model.Channel
+		gdb.First(&ch, 1)
+		return ch.Config.V[channel.KeptProxy]
+	}
+	if w := call(t, h, "PUT", "/api/channels/1", `{"name":"renamed","enabled":true,"config":{"proxy":"","keptProxy":"socks5://127.0.0.1:1"}}`, c); w.Code != http.StatusOK || strings.Contains(w.Body.String(), "keptProxy") {
+		t.Fatalf("an edit: %d %s", w.Code, w.Body)
+	}
+	if k := kept(); k != "socks5://127.0.0.1:10808" {
+		t.Fatalf("after an edit that left the proxy alone: %q", k)
+	}
+	if w := call(t, h, "PUT", "/api/channels/1", `{"name":"renamed","enabled":true,"config":{"proxy":"socks5://127.0.0.1:10809"}}`, c); w.Code != http.StatusOK {
+		t.Fatalf("a new proxy: %d %s", w.Code, w.Body)
+	}
+	if k := kept(); k != "" {
+		t.Fatalf("after the proxy changed: %q", k)
+	}
+	if w := call(t, h, "POST", "/api/channels", `{"kind":"telegram","name":"b2","config":{"token":"1:a","proxy":"socks5://127.0.0.1:2","keptProxy":"socks5://127.0.0.1:2"}}`, c); w.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", w.Code, w.Body)
+	}
+	var ch model.Channel
+	gdb.First(&ch, 2)
+	if _, ok := ch.Config.V[channel.KeptProxy]; ok {
+		t.Fatal("a request set the kept proxy")
 	}
 }

@@ -59,6 +59,17 @@ type Retry struct {
 
 func (e *Retry) Error() string { return e.Reason }
 
+// Unknown is a send whose outcome cannot be known: the whole request
+// reached the provider and its answer did not come back (a timeout, a
+// connection cut). The provider may have sent it, so it is tried neither
+// again nor on another channel — the outbox marks the delivery unknown, as
+// it does one a restart caught mid-send, and nobody gets it twice.
+type Unknown struct {
+	Reason string
+}
+
+func (e *Unknown) Error() string { return e.Reason }
+
 // Sender sends through one configured channel.
 type Sender interface {
 	Send(ctx context.Context, to Recipient, m Message) error
@@ -123,14 +134,28 @@ func Kinds() []Kind {
 	return out
 }
 
+// SettingsError is a channel's settings refused, with a code the admin
+// web translates: "kind" (no such kind), "required" and "choice" (Field
+// names the field of Kind, which the admin web words as its form does),
+// or "settings" (the kind's own check, which Reason tells in English).
+type SettingsError struct {
+	Code   string
+	Kind   string
+	Field  string
+	Reason string
+}
+
+func (e *SettingsError) Error() string { return e.Reason }
+
 // Check fills a channel's settings with the kind's defaults and refuses one
 // that is missing a required field or cannot make a sender. A default fills
 // only a field that was not sent: one sent empty stays empty, which is how
-// the admin says "none" (the generic channel's address, say).
+// the admin says "none" (the generic channel's address, say). Its error is
+// a *SettingsError.
 func Check(kind string, cfg map[string]string) (map[string]string, error) {
 	k, ok := Lookup(kind)
 	if !ok {
-		return nil, fmt.Errorf("unknown channel kind %q", kind)
+		return nil, &SettingsError{Code: "kind", Reason: fmt.Sprintf("unknown channel kind %q", kind)}
 	}
 	out := map[string]string{}
 	for _, f := range k.Fields {
@@ -139,15 +164,15 @@ func Check(kind string, cfg map[string]string) (map[string]string, error) {
 			v = f.Default
 		}
 		if f.Required && v == "" {
-			return nil, fmt.Errorf("%s is required", f.Key)
+			return nil, &SettingsError{Code: "required", Kind: kind, Field: f.Key, Reason: f.Key + " is required"}
 		}
 		if len(f.Choices) > 0 && v != "" && !slices.Contains(f.Choices, v) {
-			return nil, fmt.Errorf("%s must be one of %v", f.Key, f.Choices)
+			return nil, &SettingsError{Code: "choice", Kind: kind, Field: f.Key, Reason: fmt.Sprintf("%s must be one of %v", f.Key, f.Choices)}
 		}
 		out[f.Key] = v
 	}
 	if _, err := k.New(out); err != nil {
-		return nil, err
+		return nil, &SettingsError{Code: "settings", Reason: err.Error()}
 	}
 	return out, nil
 }
@@ -174,11 +199,17 @@ func Redact(kind string, cfg map[string]string) map[string]string {
 }
 
 // Merge applies an edit: a field not sent keeps its value, and so does a
-// secret sent empty or as the mask.
-func Merge(kind string, old, edit map[string]string) map[string]string {
+// secret sent empty or as the mask — the browser never has a secret to send
+// back. A secret named in clear is emptied: the one way to take a saved
+// secret away.
+func Merge(kind string, old, edit map[string]string, clear []string) map[string]string {
 	k, _ := Lookup(kind)
 	out := map[string]string{}
 	for _, f := range k.Fields {
+		if f.Secret && slices.Contains(clear, f.Key) {
+			out[f.Key] = ""
+			continue
+		}
 		v, sent := edit[f.Key]
 		if !sent || (f.Secret && (v == "" || v == Mask)) {
 			v, sent = old[f.Key]
@@ -188,6 +219,26 @@ func Merge(kind string, old, edit map[string]string) map[string]string {
 		}
 	}
 	return out
+}
+
+// AddressKey is the contact key a channel reaches a user by, "" for a kind
+// that needs none: a bot's chat key, phone for the SMS providers, email,
+// ntfy, and for the generic channel the key its settings name.
+func AddressKey(kind string, cfg map[string]string) string {
+	if k, ok := Lookup(kind); ok && k.Contact != "" {
+		return k.Contact
+	}
+	switch kind {
+	case "kavenegar", "faraz":
+		return "phone"
+	case "smtp":
+		return "email"
+	case "ntfy":
+		return "ntfy"
+	case "http":
+		return strings.TrimSpace(cfg["address"])
+	}
+	return ""
 }
 
 // Fill replaces {name}-style variables in s; an unknown one is left as

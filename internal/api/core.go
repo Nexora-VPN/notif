@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/nexora-vpn/notif/internal/channel"
 	"github.com/nexora-vpn/notif/internal/model"
@@ -111,15 +112,18 @@ type channelBody struct {
 	Enabled   bool              `json:"enabled"`
 	PerMinute int               `json:"perMinute"`
 	Config    map[string]string `json:"config"`
+	// Clear names the secrets to take away; a secret sent empty keeps its
+	// value, since the browser never has it to send back.
+	Clear []string `json:"clear"`
 }
 
 func (b *channelBody) check() error {
 	b.Name = strings.TrimSpace(b.Name)
-	if b.Name == "" || len(b.Name) > 64 {
-		return errors.New("a channel needs a name of up to 64 characters")
+	if b.Name == "" || utf8.RuneCountInString(b.Name) > 64 {
+		return codedErr("channel_name", "a channel needs a name of up to 64 characters")
 	}
 	if b.PerMinute < 0 || b.PerMinute > 100000 {
-		return errors.New("the rate is 0 (the kind's default) to 100000 a minute")
+		return codedErr("channel_rate", "the rate is 0 (the kind's default) to 100000 a minute")
 	}
 	return nil
 }
@@ -127,16 +131,16 @@ func (b *channelBody) check() error {
 func (s *Server) handleChannelCreate(w http.ResponseWriter, r *http.Request, _ model.Admin) {
 	var b channelBody
 	if err := decode(r, &b); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	if err := b.check(); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		fail(w, http.StatusBadRequest, err)
 		return
 	}
 	cfg, err := channel.Check(b.Kind, b.Config)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		fail(w, http.StatusBadRequest, err)
 		return
 	}
 	var last model.Channel
@@ -149,43 +153,51 @@ func (s *Server) handleChannelCreate(w http.ResponseWriter, r *http.Request, _ m
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.outbox.Refresh()
 	writeJSON(w, http.StatusCreated, viewChannel(c))
 }
 
 func (s *Server) handleChannelUpdate(w http.ResponseWriter, r *http.Request, _ model.Admin) {
 	id, err := pathID(r)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeCode(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 	var c model.Channel
 	if s.db.First(&c, id).Error != nil {
-		writeErr(w, http.StatusNotFound, "no such channel")
+		notFound(w, "no such channel")
 		return
 	}
 	var b channelBody
 	if err := decode(r, &b); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	if err := b.check(); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		fail(w, http.StatusBadRequest, err)
 		return
 	}
 	if b.Kind != "" && b.Kind != c.Kind {
-		writeErr(w, http.StatusBadRequest, "a channel's kind cannot change; add a new channel")
+		writeCode(w, http.StatusBadRequest, "channel_kind_fixed", "a channel's kind cannot change; add a new channel")
 		return
 	}
-	cfg, err := channel.Check(c.Kind, channel.Merge(c.Kind, c.Config.V, b.Config))
+	cfg, err := channel.Check(c.Kind, channel.Merge(c.Kind, c.Config.V, b.Config, b.Clear))
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		fail(w, http.StatusBadRequest, err)
 		return
+	}
+	// A bot's proxy on this server carried over from 0.1.0 stays allowed
+	// while the proxy is the one carried over; changing it drops that.
+	if k := c.Config.V[channel.KeptProxy]; k != "" && cfg["proxy"] == c.Config.V["proxy"] {
+		cfg[channel.KeptProxy] = k
 	}
 	c.Name, c.Enabled, c.PerMinute, c.Config = b.Name, b.Enabled, b.PerMinute, model.JSON[map[string]string]{V: cfg}
 	if err := s.db.Select("name", "enabled", "per_minute", "config").Updates(&c).Error; err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	// The workers send under the channel as it is now, not as it was.
+	s.outbox.Refresh()
 	writeJSON(w, http.StatusOK, viewChannel(c))
 }
 
@@ -196,7 +208,7 @@ func (s *Server) handleChannelOrder(w http.ResponseWriter, r *http.Request, _ mo
 		IDs []uint `json:"ids"`
 	}
 	if err := decode(r, &b); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	chs, err := s.channels()
@@ -211,13 +223,13 @@ func (s *Server) handleChannelOrder(w http.ResponseWriter, r *http.Request, _ mo
 	seen := map[uint]bool{}
 	for _, id := range b.IDs {
 		if !known[id] || seen[id] {
-			writeErr(w, http.StatusBadRequest, "the order must name every channel once")
+			writeCode(w, http.StatusBadRequest, "channel_order", "the order must name every channel once")
 			return
 		}
 		seen[id] = true
 	}
 	if len(seen) != len(known) {
-		writeErr(w, http.StatusBadRequest, "the order must name every channel once")
+		writeCode(w, http.StatusBadRequest, "channel_order", "the order must name every channel once")
 		return
 	}
 	err = s.db.Transaction(func(tx *gorm.DB) error {
@@ -232,19 +244,21 @@ func (s *Server) handleChannelOrder(w http.ResponseWriter, r *http.Request, _ mo
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.outbox.Refresh()
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) handleChannelDelete(w http.ResponseWriter, r *http.Request, _ model.Admin) {
 	id, err := pathID(r)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeCode(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 	if res := s.db.Delete(&model.Channel{}, id); res.RowsAffected == 0 {
-		writeErr(w, http.StatusNotFound, "no such channel")
+		notFound(w, "no such channel")
 		return
 	}
+	s.outbox.Refresh()
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -258,16 +272,16 @@ func (s *Server) handleTest(w http.ResponseWriter, r *http.Request, a model.Admi
 		Quiet   bool   `json:"quiet"`
 	}
 	if err := decode(r, &b); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	u, err := s.userByName(r, strings.TrimSpace(b.User))
 	if err != nil {
-		writeErr(w, http.StatusNotFound, err.Error())
+		fail(w, http.StatusNotFound, err)
 		return
 	}
 	if b.Channel != 0 && s.db.First(&model.Channel{}, b.Channel).Error != nil {
-		writeErr(w, http.StatusNotFound, "no such channel")
+		notFound(w, "no such channel")
 		return
 	}
 	d := model.Delivery{
@@ -288,7 +302,7 @@ func (s *Server) handleTest(w http.ResponseWriter, r *http.Request, a model.Admi
 func (s *Server) userByName(r *http.Request, name string) (model.User, error) {
 	var u model.User
 	if name == "" {
-		return u, errors.New("name an account")
+		return u, codedErr("account_unnamed", "name an account")
 	}
 	if s.db.Where("name = ? AND gone_at = 0", name).First(&u).Error == nil {
 		return u, nil
@@ -308,7 +322,7 @@ func (s *Server) userByName(r *http.Request, name string) (model.User, error) {
 			}
 		}
 	}
-	return u, fmt.Errorf("no account named %q on the panel", name)
+	return u, codedErr("account_not_found", fmt.Sprintf("no account named %q on the panel", name), "name", name)
 }
 
 // deliveryView is a delivery with its attempts and names.
@@ -389,12 +403,12 @@ func (s *Server) views(ds []model.Delivery, attempts bool) []deliveryView {
 func (s *Server) handleDelivery(w http.ResponseWriter, r *http.Request, _ model.Admin) {
 	id, err := pathID(r)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeCode(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 	var d model.Delivery
 	if s.db.First(&d, id).Error != nil {
-		writeErr(w, http.StatusNotFound, "no such delivery")
+		notFound(w, "no such delivery")
 		return
 	}
 	writeJSON(w, http.StatusOK, s.views([]model.Delivery{d}, true)[0])
@@ -404,13 +418,13 @@ func (s *Server) handleDelivery(w http.ResponseWriter, r *http.Request, _ model.
 func (s *Server) handleDeliveryCancel(w http.ResponseWriter, r *http.Request, _ model.Admin) {
 	id, err := pathID(r)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeCode(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 	res := s.db.Model(&model.Delivery{}).Where("id = ? AND status IN ?", id, []string{model.DeliveryQueued, model.DeliveryHeld}).
 		Update("status", model.DeliveryCancelled)
 	if res.RowsAffected == 0 {
-		writeErr(w, http.StatusConflict, "only a delivery that is waiting can be cancelled")
+		writeCode(w, http.StatusConflict, "not_waiting", "only a delivery that is waiting can be cancelled")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -428,11 +442,11 @@ func (s *Server) handleDeliverySettings(w http.ResponseWriter, _ *http.Request, 
 func (s *Server) handleDeliverySettingsSave(w http.ResponseWriter, r *http.Request, _ model.Admin) {
 	var d settings.Delivery
 	if err := decode(r, &d); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	if err := settings.SaveDelivery(s.db, d); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeCode(w, http.StatusBadRequest, "settings_invalid", err.Error(), "detail", err.Error())
 		return
 	}
 	// What waits for the quiet hours to end is looked at again under the
@@ -440,6 +454,7 @@ func (s *Server) handleDeliverySettingsSave(w http.ResponseWriter, r *http.Reque
 	// on hold it again until their new end.
 	s.db.Model(&model.Delivery{}).Where("status = ?", model.DeliveryHeld).
 		Updates(map[string]any{"status": model.DeliveryQueued, "next_at": time.Now().Unix()})
+	s.outbox.Refresh()
 	s.outbox.Kick()
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -37,7 +37,9 @@ func init() {
 		return []Field{
 			{Key: "token", Secret: true, Required: true},
 			{Key: "apiBase", Default: base},
-			{Key: "proxy"},
+			// The proxy may carry a user and password: a secret.
+			{Key: "proxy", Secret: true},
+			privateField,
 		}
 	}
 	Register(Kind{Name: "telegram", Contact: "telegram_id", PerMinute: 1200, Fields: common(telegram.TelegramAPI), New: newBot("telegram")})
@@ -80,7 +82,7 @@ func NewBot(kind string, cfg map[string]string) (*Bot, error) {
 	if id, _, ok := strings.Cut(token, ":"); !ok || id == "" {
 		return nil, errors.New("a bot token is id:secret, as the BotFather gives it")
 	}
-	client, err := telegram.HTTPClient(strings.TrimSpace(cfg["proxy"]))
+	client, err := botClient(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +137,15 @@ func (b *Bot) Send(ctx context.Context, to Recipient, m Message) error {
 	if err != nil {
 		return &Refused{Reason: b.Contact + " is " + raw + ", not a chat id: the user must start the bot to be linked"}
 	}
-	err = b.SendText(ctx, b.Out, chat, m.Title, m.Text)
+	sctx, w := watchSend(ctx)
+	err = b.SendText(sctx, b.Out, chat, m.Title, m.Text)
+	var e *telegram.Error
+	if err != nil && !errors.As(err, &e) {
+		// No answer of the Bot API's: the request may still have reached it.
+		if f := w.failure(err, b.Kind, err.Error()); f != nil {
+			return f
+		}
+	}
 	return Classify(err, b.Contact)
 }
 

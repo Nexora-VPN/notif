@@ -315,3 +315,47 @@ func SaveSchedule(gdb *gorm.DB, s Schedule) error {
 	}
 	return save(gdb, keySchedule, s)
 }
+
+const keyRebase = "rebase_pending"
+
+// MarkRebase records that the panel was restored and a read that writes
+// every account as it is now (users.Sync.Rebase) is owed; the mark is a
+// fresh one each time, so a pass that began before a second restore does
+// not clear the second's.
+func MarkRebase(gdb *gorm.DB) error {
+	return save(gdb, keyRebase, strconv.FormatInt(time.Now().UnixNano(), 10))
+}
+
+// RebaseOwed is the mark of the rebase owed, "" for none.
+func RebaseOwed(gdb *gorm.DB) (string, error) {
+	var mark string
+	return mark, load(gdb, keyRebase, &mark)
+}
+
+// RebaseDone clears the mark when it is still mark: the pass that read it
+// has completed.
+func RebaseDone(gdb *gorm.DB, mark string) error {
+	raw, _ := json.Marshal(mark)
+	return gdb.Where("key = ? AND value = ?", keyRebase, string(raw)).Delete(&model.Setting{}).Error
+}
+
+// RebaseDropped clears any mark: the copy it was owed to is forgotten.
+func RebaseDropped(gdb *gorm.DB) error {
+	return gdb.Where("key = ?", keyRebase).Delete(&model.Setting{}).Error
+}
+
+const keyForgotten = "forgotten_through"
+
+// SetForgottenThrough records the last delivery made before the copy of the
+// accounts was forgotten (users.Sync.Forget): it and every one before it
+// were meant for the accounts of a panel Notif has left.
+func SetForgottenThrough(gdb *gorm.DB, id uint) error {
+	return save(gdb, keyForgotten, id)
+}
+
+// ForgottenThrough is that delivery's id, 0 when the copy was never
+// forgotten.
+func ForgottenThrough(gdb *gorm.DB) (uint, error) {
+	var id uint
+	return id, load(gdb, keyForgotten, &id)
+}

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/nexora-vpn/notif/internal/channel"
 	"github.com/nexora-vpn/notif/internal/model"
@@ -51,11 +52,11 @@ func (s *Server) handleNotices(w http.ResponseWriter, _ *http.Request, _ model.A
 
 // handleNoticeSave writes a kind's setting. A text left empty is the
 // default's; a channel kind's override is kept only where it says
-// something.
+// something — a title, a text or both.
 func (s *Server) handleNoticeSave(w http.ResponseWriter, r *http.Request, _ model.Admin) {
 	kind := r.PathValue("kind")
 	if _, ok := notices.Lookup(kind); !ok {
-		writeErr(w, http.StatusNotFound, "no such notice")
+		notFound(w, "no such notice")
 		return
 	}
 	var b struct {
@@ -64,7 +65,7 @@ func (s *Server) handleNoticeSave(w http.ResponseWriter, r *http.Request, _ mode
 		Texts   map[string]map[string]model.Text `json:"texts"`
 	}
 	if err := decode(r, &b); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	texts := map[string]map[string]model.Text{}
@@ -74,20 +75,22 @@ func (s *Server) handleNoticeSave(w http.ResponseWriter, r *http.Request, _ mode
 			known = known || l == lang
 		}
 		if !known {
-			writeErr(w, http.StatusBadRequest, "unknown language "+lang)
+			writeCode(w, http.StatusBadRequest, "unknown_language", "unknown language "+lang, "lang", lang)
 			return
 		}
 		for ck, t := range per {
 			if _, ok := channel.Lookup(ck); ck != "" && !ok {
-				writeErr(w, http.StatusBadRequest, "unknown channel kind "+ck)
+				writeCode(w, http.StatusBadRequest, "channel_kind", "unknown channel kind "+ck)
 				return
 			}
 			t.Title, t.Body = strings.TrimSpace(t.Title), strings.TrimSpace(t.Body)
-			if len(t.Title) > 200 || len(t.Body) > 4000 {
-				writeErr(w, http.StatusBadRequest, "a title is 200 characters at most and a text 4000")
+			if utf8.RuneCountInString(t.Title) > 200 || utf8.RuneCountInString(t.Body) > 4000 {
+				writeCode(w, http.StatusBadRequest, "text_too_long", "a title is 200 characters at most and a text 4000")
 				return
 			}
-			if t.Body == "" {
+			// A title alone is kept: the words are layered field by field,
+			// so it takes the default's place and the text stays the default.
+			if t.Title == "" && t.Body == "" {
 				continue
 			}
 			if texts[lang] == nil {
@@ -101,6 +104,7 @@ func (s *Server) handleNoticeSave(w http.ResponseWriter, r *http.Request, _ mode
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.outbox.Refresh()
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -113,7 +117,7 @@ func (s *Server) handleNoticePreview(w http.ResponseWriter, r *http.Request, _ m
 		Body  string `json:"body"`
 	}
 	if err := decode(r, &b); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	now := time.Now().Unix()
@@ -135,11 +139,11 @@ func (s *Server) handleSchedule(w http.ResponseWriter, _ *http.Request, _ model.
 func (s *Server) handleScheduleSave(w http.ResponseWriter, r *http.Request, _ model.Admin) {
 	var b settings.Schedule
 	if err := decode(r, &b); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		badBody(w)
 		return
 	}
 	if err := settings.SaveSchedule(s.db, b); err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeCode(w, http.StatusBadRequest, "settings_invalid", err.Error(), "detail", err.Error())
 		return
 	}
 	// A new line may already be crossed: pass the schedule now.

@@ -46,6 +46,7 @@ func init() {
 			{Key: "basicPassword", Secret: true},
 			{Key: "successPattern"},
 			{Key: "caBundle", Multiline: true},
+			privateField,
 		},
 		PerMinute: 60,
 		New:       newHTTP,
@@ -61,6 +62,8 @@ type httpChannel struct {
 	headerT                                [][2]*template.Template
 	success                                *regexp.Regexp
 	client                                 *http.Client
+	// hide takes the secrets out of what the log keeps.
+	hide func(string) string
 }
 
 var funcs = template.FuncMap{
@@ -142,7 +145,7 @@ func newHTTP(cfg map[string]string) (Sender, error) {
 			return nil, fmt.Errorf("successPattern: %w", err)
 		}
 	}
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+	var tlsCfg *tls.Config
 	if pem := strings.TrimSpace(cfg["caBundle"]); pem != "" {
 		pool, err := x509.SystemCertPool()
 		if err != nil || pool == nil {
@@ -151,9 +154,10 @@ func newHTTP(cfg map[string]string) (Sender, error) {
 		if !pool.AppendCertsFromPEM([]byte(pem)) {
 			return nil, errors.New("caBundle holds no PEM certificate")
 		}
-		transport.TLSClientConfig = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
+		tlsCfg = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
 	}
-	c.client = &http.Client{Timeout: 20 * time.Second, Transport: transport}
+	c.client = providerClient(tlsCfg, cfg)
+	c.hide = hider(c.secret, c.basicPass)
 	return c, nil
 }
 
@@ -228,7 +232,7 @@ func (c *httpChannel) Send(ctx context.Context, to Recipient, m Message) error {
 	}
 	req, err := http.NewRequestWithContext(ctx, c.method, u, body)
 	if err != nil {
-		return &Refused{Reason: strings.ReplaceAll(err.Error(), c.secret, "<secret>")}
+		return &Refused{Reason: c.hide(err.Error())}
 	}
 	if body != nil && contentType != "" {
 		req.Header.Set("Content-Type", contentType)
@@ -244,13 +248,15 @@ func (c *httpChannel) Send(ctx context.Context, to Recipient, m Message) error {
 	if c.basicUser != "" {
 		req.SetBasicAuth(c.basicUser, c.basicPass)
 	}
-	resp, err := c.client.Do(req)
+	resp, err := do(c.client, req, "http", c.hide)
 	if err != nil {
-		return &Retry{Reason: c.hide(err.Error())}
+		return err
 	}
 	defer resp.Body.Close()
+	// The answer is read for the success pattern only; the log keeps its
+	// status line, never what the provider wrote.
 	answer, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-	reason := c.hide(fmt.Sprintf("HTTP %d: %s", resp.StatusCode, clip(strings.TrimSpace(string(answer)), 500)))
+	reason := statusLine("http", resp)
 	switch {
 	case resp.StatusCode >= 200 && resp.StatusCode < 300:
 		if c.success != nil && !c.success.Match(answer) {
@@ -263,15 +269,6 @@ func (c *httpChannel) Send(ctx context.Context, to Recipient, m Message) error {
 	default:
 		return &Refused{Reason: reason}
 	}
-}
-
-// hide keeps the secret out of the log, where a provider that echoes its
-// key (or a URL carrying it) would otherwise put it.
-func (c *httpChannel) hide(s string) string {
-	if c.secret == "" {
-		return s
-	}
-	return strings.ReplaceAll(s, c.secret, "<secret>")
 }
 
 func retryAfter(v string) time.Duration {

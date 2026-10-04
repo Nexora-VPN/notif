@@ -16,6 +16,8 @@ services:
         VITE_PRIMEUI_LICENSE: ${VITE_PRIMEUI_LICENSE:-}
     container_name: notif
     restart: unless-stopped
+    # Time for the sends in hand to finish on a stop (Notif waits up to 45s).
+    stop_grace_period: 60s
     env_file: .env
     environment:
       NEXORA_OPT_PORT: "8097"

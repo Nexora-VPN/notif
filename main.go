@@ -29,6 +29,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 	// The zone database inside the binary: a host installed as a service
@@ -40,8 +41,10 @@ import (
 	"github.com/nexora-vpn/notif/internal/admins"
 	"github.com/nexora-vpn/notif/internal/api"
 	"github.com/nexora-vpn/notif/internal/backup"
+	"github.com/nexora-vpn/notif/internal/channel"
 	"github.com/nexora-vpn/notif/internal/config"
 	"github.com/nexora-vpn/notif/internal/db"
+	"github.com/nexora-vpn/notif/internal/outbox"
 )
 
 // The manifest at the repository's root is the one built in; a release
@@ -90,6 +93,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	if err := channel.SetLocalProxies(cfg.LocalProxies); err != nil {
+		return err
+	}
 	gdb, err := db.Open(cfg)
 	if err != nil {
 		return err
@@ -115,11 +121,30 @@ func run() error {
 			spa = sub
 		}
 	}
-	app := api.New(gdb, a, cfg, a.Manifest().Version, spa)
+	app, err := api.New(gdb, a, cfg, a.Manifest().Version, spa)
+	if err != nil {
+		return err
+	}
 	bg, stopBg := context.WithCancel(context.Background())
 	defer stopBg()
-	go app.Run(bg)
-	go backup.Run(bg, gdb, cfg)
+	// The background work — the outbox, the copy, the bots, the schedule,
+	// the backups — is waited for on the way out, so a send in hand ends
+	// as sent or failed rather than unknown.
+	var work sync.WaitGroup
+	work.Go(func() { app.Run(bg) })
+	work.Go(func() { backup.Run(bg, gdb, cfg) })
+	workStopped := make(chan struct{})
+	stopWork := func() {
+		defer close(workStopped)
+		stopBg()
+		done := make(chan struct{})
+		go func() { work.Wait(); close(done) }()
+		select {
+		case <-done:
+		case <-time.After(shutdownWait):
+			log.Printf("stopping: the background work did not end within %s", shutdownWait)
+		}
+	}
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: app.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	log.Printf("nexora notif %s on :%s (%s)", a.Manifest().Version, cfg.Port, cfg.Driver)
 	errs := make(chan error, 1)
@@ -128,16 +153,29 @@ func run() error {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	select {
 	case err := <-errs:
+		stopWork()
 		if !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
 	case <-stop:
+		// The requests in hand and the background work end side by side,
+		// so the stop takes the longer of the two waits, not their sum.
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		return srv.Shutdown(ctx)
+		go stopWork()
+		err := srv.Shutdown(ctx)
+		<-workStopped
+		return err
 	}
 	return nil
 }
+
+// shutdownWait bounds the wait for the background work on the way out:
+// a delivery in hand reads the link (outbox.LinkWait) and makes one send
+// (outbox.SendWait), and the next channel waits for the next start. The
+// service managers wait longer than this: the compose file's
+// stop_grace_period and the unit's TimeoutStopSec are 60 seconds.
+const shutdownWait = outbox.LinkWait + outbox.SendWait + 5*time.Second
 
 // adminCmd is the recovery path: set an admin's password (making the
 // account if it is not there), turning its second factor off and ending its

@@ -187,7 +187,7 @@ func (m *Manager) read(ctx context.Context, c model.Channel, bot *channel.Bot) {
 		for _, u := range ups {
 			offset = u.UpdateID + 1
 			if u.Message != nil {
-				m.Handle(ctx, bot, *u.Message)
+				m.handleOn(ctx, c.ID, bot, *u.Message)
 			}
 		}
 		if len(ups) > 0 {
@@ -200,6 +200,8 @@ func (m *Manager) read(ctx context.Context, c model.Channel, bot *channel.Bot) {
 
 // conversation is one user's chat with one bot, whatever its API.
 type conversation struct {
+	// channel is the bot's channel.
+	channel           uint
 	kind, contact, id string
 	// lang is the language to answer in; langKnown says the messenger
 	// named it, so it may be written to the card.
@@ -214,14 +216,20 @@ func (c conversation) reply(ctx context.Context, key string, vars map[string]str
 	}
 }
 
-// Handle answers one message to a bot on Telegram's API.
+// Handle answers one message to a bot on Telegram's API that is not one of
+// the channels (a test's).
 func (m *Manager) Handle(ctx context.Context, bot *channel.Bot, msg telegram.Message) {
+	m.handleOn(ctx, 0, bot, msg)
+}
+
+// handleOn answers one message to the bot of channel channelID.
+func (m *Manager) handleOn(ctx context.Context, channelID uint, bot *channel.Bot, msg telegram.Message) {
 	if msg.Chat.Type != "" && msg.Chat.Type != "private" {
 		return
 	}
 	chat := msg.Chat.ID
 	c := conversation{
-		kind: bot.Kind, contact: bot.Contact, id: strconv.FormatInt(chat, 10),
+		channel: channelID, kind: bot.Kind, contact: bot.Contact, id: strconv.FormatInt(chat, 10),
 		lang: m.language(msg.From), langKnown: m.known(msg.From),
 		send: func(ctx context.Context, text string) error {
 			return bot.SendText(ctx, bot.API, chat, "", text)
@@ -271,7 +279,7 @@ func (m *Manager) handle(ctx context.Context, c conversation, text string) {
 	}
 	// The chat is the link; the messenger's language, when the card has
 	// none, is the language the user's notices are written in.
-	err := m.Links.Update(ctx, u.ID, func(card map[string]string) {
+	before, err := m.Links.Update(ctx, u.ID, func(card map[string]string) {
 		card[c.contact] = c.id
 		if card["lang"] == "" && c.langKnown {
 			card["lang"] = c.lang
@@ -282,17 +290,39 @@ func (m *Manager) handle(ctx context.Context, c conversation, text string) {
 		c.reply(ctx, "failed", nil)
 		return
 	}
+	// Notif wrote this key, so it may take it away again — unless the card
+	// held this chat already, written by someone else (Shop's telegram_id
+	// for its own bot), which stays theirs; and a block an earlier /stop
+	// left on this bot is lifted.
+	if before[c.contact] != c.id {
+		if err := m.Links.Own(u.ID, c.contact, c.id); err != nil {
+			log.Printf("bots: link %d to %s %s: %v", u.ID, c.kind, c.id, err)
+		}
+	}
+	if c.channel != 0 {
+		if err := m.Links.Unblock(u.ID, c.channel); err != nil {
+			log.Printf("bots: link %d to %s %s: %v", u.ID, c.kind, c.id, err)
+		}
+	}
 	c.reply(ctx, "linked", map[string]string{"name": u.Name})
 }
 
-// unlinkChat takes a chat off every account it is linked to, and says how
-// many there were.
+// unlinkChat stops a chat hearing from this bot about every account it is
+// linked to, and says how many there were: a link Notif wrote is taken off
+// the card; one another addon wrote (Shop's, for its own bot) stays on the
+// card, and this bot is blocked from it instead.
 func (m *Manager) unlinkChat(ctx context.Context, c conversation) (int, error) {
 	linked := m.Links.Linked(c.contact, c.id)
 	for _, u := range linked {
-		if err := m.Links.Set(ctx, u.ID, c.contact, ""); err != nil {
+		released, err := m.Links.Release(ctx, u.ID, c.contact, c.id)
+		if err != nil {
 			log.Printf("bots: unlink %d: %v", u.ID, err)
 			return 0, err
+		}
+		if !released && c.channel != 0 {
+			if err := m.Links.Block(u.ID, c.channel, c.id, "the user stopped the bot"); err != nil {
+				return 0, err
+			}
 		}
 	}
 	return len(linked), nil
@@ -362,7 +392,7 @@ func (m *Manager) readRubika(ctx context.Context, c model.Channel, bot *channel.
 		}
 		for _, u := range ups {
 			conv := conversation{
-				kind: "rubika", contact: "rubika_id", id: u.ChatID, lang: cfg.Language,
+				channel: c.ID, kind: "rubika", contact: "rubika_id", id: u.ChatID, lang: cfg.Language,
 				send: func(ctx context.Context, text string) error { return bot.SendText(ctx, u.ChatID, "", text) },
 			}
 			switch u.Type {

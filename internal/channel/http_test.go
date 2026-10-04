@@ -7,14 +7,24 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 type seen struct {
 	method, path, query, auth, user, pass, ctype string
 	body                                         []byte
+}
+
+// TestMain lets the channels reach the stand-ins on 127.0.0.1; the test of
+// the guard turns that off for itself.
+func TestMain(m *testing.M) {
+	AllowLocal(true)
+	os.Exit(m.Run())
 }
 
 func standIn(t *testing.T, code *int, answer *string) (*httptest.Server, *seen) {
@@ -83,12 +93,16 @@ func TestTheGenericChannel(t *testing.T) {
 	if r := Redact("http", full); r["secret"] != Mask || r["headers"] != "Authorization: Bearer {{.Secret}}" {
 		t.Fatalf("redacted %v", r)
 	}
-	if m := Merge("http", full, map[string]string{"url": srv.URL, "secret": Mask}); m["secret"] != "k3y" {
+	if m := Merge("http", full, map[string]string{"url": srv.URL, "secret": Mask}, nil); m["secret"] != "k3y" {
 		t.Fatalf("merged %v", m)
+	}
+	// A secret sent empty is kept; one named in clear is taken away.
+	if m := Merge("http", full, map[string]string{"url": srv.URL, "secret": ""}, []string{"secret"}); m["secret"] != "" {
+		t.Fatalf("cleared %v", m)
 	}
 	// An address sent empty is "none" and survives an edit that leaves it out.
 	none, _ := Check("http", map[string]string{"url": srv.URL, "address": ""})
-	none, _ = Check("http", Merge("http", none, map[string]string{"url": srv.URL}))
+	none, _ = Check("http", Merge("http", none, map[string]string{"url": srv.URL}, nil))
 	if none["address"] != "" {
 		t.Fatalf("an empty address became %q", none["address"])
 	}
@@ -165,5 +179,83 @@ func TestThePresetsAreValid(t *testing.T) {
 		if _, err := Check("http", cfg); err != nil {
 			t.Errorf("%s: %v", p.Name, err)
 		}
+	}
+}
+
+// TestOnlyPublicAddresses: a channel's address on this host, a private
+// network or the metadata service is refused for good when it is dialled,
+// and the log keeps no part of a provider's answer.
+func TestOnlyPublicAddresses(t *testing.T) {
+	code, answer := 200, "internal secret page"
+	srv, _ := standIn(t, &code, &answer)
+	AllowLocal(false)
+	t.Cleanup(func() { AllowLocal(true) })
+	to := Recipient{Contact: map[string]string{"phone": "0912"}}
+	for _, u := range []string{srv.URL, "http://169.254.169.254/latest/meta-data", "http://10.0.0.1/", "http://[::1]:9/"} {
+		var refused *Refused
+		if err := sender(t, map[string]string{"url": u}).Send(context.Background(), to, Message{}); !errors.As(err, &refused) || !strings.Contains(err.Error(), "public") {
+			t.Fatalf("%s: %v", u, err)
+		}
+	}
+	ntfy, _ := Check("ntfy", map[string]string{"server": srv.URL})
+	k, _ := Lookup("ntfy")
+	n, _ := k.New(ntfy)
+	var refused *Refused
+	if err := n.Send(context.Background(), Recipient{Contact: map[string]string{"ntfy": "t"}}, Message{}); !errors.As(err, &refused) {
+		t.Fatalf("ntfy on this host: %v", err)
+	}
+	for _, ip := range []string{"8.8.8.8", "2606:4700::1111"} {
+		if !Public(netip.MustParseAddr(ip)) {
+			t.Fatalf("%s is public", ip)
+		}
+	}
+	for _, ip := range []string{"127.0.0.1", "10.1.2.3", "172.16.0.1", "192.168.1.1", "169.254.169.254", "100.100.100.200", "::1", "fe80::1", "fd00::1", "::ffff:127.0.0.1", "64:ff9b::a00:1", "0.0.0.0"} {
+		if Public(netip.MustParseAddr(ip)) {
+			t.Fatalf("%s is not public", ip)
+		}
+	}
+
+	// A provider's answer stays out of the log; only its status is kept.
+	AllowLocal(true)
+	code, answer = 400, "internal secret page"
+	if err := sender(t, map[string]string{"url": srv.URL}).Send(context.Background(), to, Message{}); err == nil || strings.Contains(err.Error(), "internal") || !strings.Contains(err.Error(), "400 Bad Request") {
+		t.Fatalf("400: %v", err)
+	}
+}
+
+// TestASecretStaysOutOfTheLog: a secret placed in the address, as written
+// or as the URL encodes it, is masked in a failure's words.
+func TestASecretStaysOutOfTheLog(t *testing.T) {
+	for _, secret := range []string{"k3y/with space&more", "plain-key"} {
+		s := sender(t, map[string]string{"url": "http://127.0.0.1:1/send?key={{urlquery .Secret}}&k2={{.Secret}}", "secret": secret, "address": ""})
+		err := s.Send(context.Background(), Recipient{}, Message{})
+		if err == nil || strings.Contains(err.Error(), secret) || strings.Contains(err.Error(), url.QueryEscape(secret)) {
+			t.Fatalf("%q: %v", secret, err)
+		}
+	}
+	if h := hider("")("nothing to hide"); h != "nothing to hide" {
+		t.Fatalf("an empty secret: %q", h)
+	}
+}
+
+// TestATimeoutAfterTheRequestIsUnknown: a provider that took the whole
+// request and did not answer may have sent it — not tried again; one that
+// could not be reached is worth a retry.
+func TestATimeoutAfterTheRequestIsUnknown(t *testing.T) {
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.ReadAll(r.Body)
+		time.Sleep(300 * time.Millisecond)
+	}))
+	t.Cleanup(slow.Close)
+	s := sender(t, map[string]string{"url": slow.URL, "address": ""})
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	var unknown *Unknown
+	if err := s.Send(ctx, Recipient{}, Message{Text: "x"}); !errors.As(err, &unknown) {
+		t.Fatalf("a timeout after the request: %v", err)
+	}
+	var retry *Retry
+	if err := sender(t, map[string]string{"url": "http://127.0.0.1:1/", "address": ""}).Send(context.Background(), Recipient{}, Message{}); !errors.As(err, &retry) {
+		t.Fatalf("a refused connection: %v", err)
 	}
 }

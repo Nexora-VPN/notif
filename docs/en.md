@@ -56,7 +56,8 @@ shared (the channel says so if it is).
 
 - **Telegram** — a server in Iran or China cannot reach `api.telegram.org`:
   set a **proxy** (`socks5://host:port`), or a Bot API mirror as the API
-  address.
+  address. A proxy on this server, the docker host or your LAN is named
+  at install first (**Allowed bot proxies**; see "Not public" below).
 - **Bale** — Bale writes every message in its own Markdown, and slows a bot
   that writes to users who are not talking to it. Its paid **business API**
   is made for notices: switch it on in the channel once your Bale business
@@ -215,6 +216,45 @@ seven. By hand: `notif backup -o notif.db`, and with Notif stopped,
 `notif restore -i notif.db` (the replaced database is kept beside it). On
 PostgreSQL back the database up with `pg_dump`.
 
+Upgrading from Notif 0.1.0: that version kept every account's subscription
+link, secret and all, in its copy of the accounts; the first start of a
+newer one deletes them from the database. The daily copies taken before
+the upgrade still hold them until they age out, seven days later — delete
+the files in `<data>/backups` by hand to be rid of them at once.
+
+Upgrading from Notif 0.1.0, the channels: that version dialled whatever
+address a channel named; a newer one reaches public addresses, a private
+network only with **Address on my own network** on, and a bot's proxy
+elsewhere only when the install names it (see "Not public" below). The
+first start carries what worked over: a channel whose address or proxy is
+on a private network — a LAN or Tailscale address, a name that resolves to
+one, a container's name such as `http://ntfy` — has the switch turned on,
+and a bot's proxy on this server (`socks5://127.0.0.1:10808`) keeps working
+until the channel's proxy is changed. A channel whose own address is on
+this server (`http://127.0.0.1:…`, or any address the server's interfaces
+carry) is refused now, switch or not: Notif never sends to the server it
+runs on. Run such a relay — a local postfix, an ntfy — on another machine
+of your network and turn the switch on; under docker, the host is another
+machine to Notif's container, reached at `host.docker.internal` with the
+switch on (see "Not public"). To name a proxy at install afterwards — a
+new one, or the carried one once you change it:
+
+- **Script install** — run the install again with the option, the other
+  answers are kept: `sh install.sh --method script --opt
+  local_proxies=127.0.0.1:10808`. Or add the line
+  `NEXORA_OPT_LOCAL_PROXIES='127.0.0.1:10808'` to
+  `/opt/nexora-addons/notif/.env` and run `systemctl restart
+  nexora-addon-notif`.
+- **Docker** — 127.0.0.1 inside the container is the container itself,
+  never the host: name the host's proxy at the host's address on the
+  docker network, `--opt local_proxies=host.docker.internal:10808` (the
+  compose file maps `host.docker.internal` to the host), or that line in
+  `/opt/nexora-addons/notif/.env` followed by `docker compose -f
+  /opt/nexora-addons/notif/compose.yml --env-file
+  /opt/nexora-addons/notif/.env up -d`. The proxy on the host must listen
+  on that address too (`172.17.0.1`, or every address with a firewall
+  keeping the outside away), not on 127.0.0.1 alone.
+
 ## When something is wrong
 
 - **A bot channel says another program reads its updates** — the token is
@@ -225,3 +265,39 @@ PostgreSQL back the database up with `pg_dump`.
   attempts say why each failed.
 - **Nothing queued for an account** — no channel that is on has an address
   for it: link a bot, or add a phone or email to the card.
+- **"Not public" for a channel** — a channel's address (the HTTP channel,
+  an SMS provider's or a bot's API address, the ntfy server, the mail
+  server) must be on the public internet; one on this server or a private
+  network is refused. This server is every address it has: loopback and
+  each address on its network interfaces, its public address included.
+  For a relay or server of your own on a private network (LAN, WireGuard,
+  Tailscale, a container beside Notif), turn on **Address on my own
+  network** in the channel; this server's own addresses and the cloud's
+  metadata service stay refused even so. Under docker, "this server" is
+  Notif's container, which cannot see the host's addresses: the host is
+  reached at the docker network's gateway (`172.17.0.1`,
+  `host.docker.internal`) when that switch is on, and at its public address
+  whatever the switch, as any public address is. A bot channel's own
+  **Proxy** is held to the same rules as its address: public, or on your
+  own network with that switch on — or one the install named, host and
+  port, in the **Allowed bot proxies** option (`NEXORA_OPT_LOCAL_PROXIES`),
+  wherever it is: this server (`127.0.0.1:10808`), the docker host
+  (`host.docker.internal:10808`), your LAN. Never a link-local address or
+  the metadata service. `HTTPS_PROXY` / `HTTP_PROXY` in Notif's
+  environment, for the other channels, is the operator's and is used
+  wherever it is, this server included. Through a proxy, an address is
+  judged as a direct one is, but a name is looked up by the proxy, not by
+  Notif: only this server's names (`localhost`), `.internal` names, the
+  metadata services' names, the names that spell an address (`nip.io`,
+  `sslip.io` and the like) and, with the switch off, a name with no dot
+  are refused. So a proxy the install named reaches whatever that proxy
+  reaches — name it only if that is what you want.
+- **A bot the user blocked or stopped** — that chat is not tried again; it
+  is taken off the card only when the user linked it through Notif, never
+  a chat another addon (Shop) wrote.
+- **"Unknown" in the log** — the provider took the request and its answer
+  was lost; it may have been sent, so it is not sent again.
+- **Commands on a script install** — run them as the service runs, as its
+  user and with its settings read from `.env` exactly as systemd reads them
+  (quoted values included), so the files they write stay its own:
+  `sudo systemd-run --pipe --wait --quiet -p User=nexora-notif -p EnvironmentFile=/opt/nexora-addons/notif/.env /opt/nexora-addons/notif/bin/notif admin reset-password -user admin -pass …`.

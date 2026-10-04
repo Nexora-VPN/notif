@@ -14,6 +14,9 @@
 //     held, never dropped.
 //   - Rate. Each channel sends at most its per-minute rate; a delivery that
 //     would exceed it waits for the next token without counting a try.
+//   - Blocks. A bot the user blocked, stopped or never started is not
+//     tried again at that chat (model.Block); the chat is taken off the
+//     account's card only when Notif itself wrote it there.
 package outbox
 
 import (
@@ -22,6 +25,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,6 +34,7 @@ import (
 	"github.com/nexora-vpn/notif/internal/notices"
 	"github.com/nexora-vpn/notif/internal/settings"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Tries is how often one channel is tried for one delivery before the next
@@ -46,15 +51,49 @@ type Outbox struct {
 	Now func() time.Time
 	// Workers is how many deliveries are sent at once.
 	Workers int
-	// Unlink takes a contact key off an account whose channel said the user
-	// can no longer be reached there (a bot the user blocked).
-	Unlink func(userID uint, key string)
+	// Unlink hears that a channel can no longer reach a user at value, the
+	// account's contact key: it takes the key off the card when Notif wrote
+	// it there and the card still holds value (links.Release). The outbox
+	// has already blocked the channel for that address.
+	Unlink func(userID uint, key, value string)
+	// SubURL reads an account's subscription link from the panel, for a
+	// notice that names it: the copy never keeps the link's secret.
+	SubURL func(ctx context.Context, userID uint) (string, error)
 
 	kick chan struct{}
 	mu   sync.Mutex
 	// senders are built once per channel and its settings.
 	senders map[uint]cachedSender
 	buckets map[uint]*bucket
+
+	// cur is the pass the workers send under, read again when it is older
+	// than PassAge or Refresh says it changed.
+	passMu sync.Mutex
+	cur    *pass
+	curAt  time.Time
+}
+
+// PassAge bounds how old the settings, the words and the channels a
+// delivery is sent under may be: a channel switched off or deleted stops
+// sending within it, and at once when the admin web says so (Refresh).
+const PassAge = 30 * time.Second
+
+// Refresh has the next delivery read the settings, the notices' words and
+// the channels again: the admin changed them.
+func (o *Outbox) Refresh() {
+	o.passMu.Lock()
+	o.cur = nil
+	o.passMu.Unlock()
+}
+
+// current is the pass to send under now.
+func (o *Outbox) current() *pass {
+	o.passMu.Lock()
+	defer o.passMu.Unlock()
+	if o.cur == nil || time.Since(o.curAt) > PassAge {
+		o.cur, o.curAt = o.snapshot(), time.Now()
+	}
+	return o.cur
 }
 
 type cachedSender struct {
@@ -70,8 +109,9 @@ func New(gdb *gorm.DB) *Outbox {
 	}
 }
 
-// Enqueue queues a delivery unless one with its key exists; it reports
-// whether it queued.
+// Enqueue queues a delivery unless its key was raised before — while its
+// delivery is in the log, and a lasting key (a schedule line's) in
+// model.Once long after — and reports whether it queued.
 func (o *Outbox) Enqueue(d model.Delivery) (bool, error) {
 	if d.Key == "" || d.UserID == 0 || d.Kind == "" {
 		return false, errors.New("a delivery needs a key, a user and a kind")
@@ -82,15 +122,42 @@ func (o *Outbox) Enqueue(d model.Delivery) (bool, error) {
 	// tells the same change is on its way); otherwise it is due now.
 	d.NextAt = max(d.NextAt, o.Now().Unix())
 	d.CreatedAt = o.Now().Unix()
-	res := o.DB.Where(model.Delivery{Key: d.Key}).Attrs(d).FirstOrCreate(&d)
-	if res.Error != nil {
-		return false, res.Error
+	queued := false
+	err := o.DB.Transaction(func(tx *gorm.DB) error {
+		if d.Lasting {
+			res := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.Once{Key: d.Key, At: d.CreatedAt})
+			if res.Error != nil || res.RowsAffected == 0 {
+				return res.Error
+			}
+		}
+		res := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&d)
+		queued = res.RowsAffected == 1
+		return res.Error
+	})
+	if err != nil {
+		return false, err
 	}
-	if res.RowsAffected == 1 {
+	if queued {
 		o.Kick()
-		return true, nil
 	}
-	return false, nil
+	return queued, nil
+}
+
+// Raised is which of the lasting keys were raised before, read a few
+// hundred keys at a time — for a pass over every account, which would
+// otherwise ask once per account.
+func (o *Outbox) Raised(keys []string) (map[string]bool, error) {
+	out := map[string]bool{}
+	for start := 0; start < len(keys); start += 500 {
+		var got []string
+		if err := o.DB.Model(&model.Once{}).Where("key IN ?", keys[start:min(start+500, len(keys))]).Pluck("key", &got).Error; err != nil {
+			return nil, err
+		}
+		for _, k := range got {
+			out[k] = true
+		}
+	}
+	return out, nil
 }
 
 // Kick wakes the workers.
@@ -123,7 +190,8 @@ func (o *Outbox) Recover() error {
 	return nil
 }
 
-// Run sends until ctx ends.
+// Run sends until ctx ends, then waits for the sends in hand: each ends
+// within its own timeout, which ctx's end does not cut short.
 func (o *Outbox) Run(ctx context.Context) {
 	if err := o.Recover(); err != nil {
 		log.Printf("outbox: recover: %v", err)
@@ -135,7 +203,9 @@ func (o *Outbox) Run(ctx context.Context) {
 		go func() {
 			defer wg.Done()
 			for id := range jobs {
-				o.process(ctx, id)
+				// The settings, the words and the channels at most PassAge
+				// old: one read for many deliveries, not one each.
+				o.process(ctx, o.current(), id)
 			}
 		}()
 	}
@@ -143,11 +213,16 @@ func (o *Outbox) Run(ctx context.Context) {
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
 	for {
-		for _, id := range o.claim(50) {
-			select {
-			case jobs <- id:
-			case <-ctx.Done():
-				return
+		if ids := o.claim(50); len(ids) > 0 {
+			for i, id := range ids {
+				select {
+				case jobs <- id:
+				case <-ctx.Done():
+					// What was claimed and not handed out goes back.
+					o.DB.Model(&model.Delivery{}).Where("id IN ? AND status = ?", ids[i:], model.DeliverySending).
+						Update("status", model.DeliveryQueued)
+					return
+				}
 			}
 		}
 		select {
@@ -183,8 +258,9 @@ func (o *Outbox) ProcessDue(ctx context.Context) {
 		if len(ids) == 0 {
 			return
 		}
+		p := o.snapshot()
 		for _, id := range ids {
-			o.process(ctx, id)
+			o.process(ctx, p, id)
 		}
 	}
 }
@@ -195,40 +271,97 @@ func (o *Outbox) set(d *model.Delivery, fields map[string]any) {
 	}
 }
 
+// pass is what deliveries are sent under, read once for many: the
+// delivery settings, the notices' words and the channels.
+type pass struct {
+	cfg  settings.Delivery
+	book notices.Book
+	// channels is every channel in the admin's order; err is why they
+	// could not be read.
+	channels []model.Channel
+	err      error
+}
+
+func (o *Outbox) snapshot() *pass {
+	p := &pass{book: notices.Load(o.DB)}
+	p.cfg, _ = settings.LoadDelivery(o.DB)
+	if p.err = o.DB.Find(&p.channels).Error; p.err == nil {
+		sort.SliceStable(p.channels, func(i, j int) bool {
+			if p.channels[i].Position != p.channels[j].Position {
+				return p.channels[i].Position < p.channels[j].Position
+			}
+			return p.channels[i].ID < p.channels[j].ID
+		})
+	}
+	return p
+}
+
+// order is the channels to try: the admin's order of the enabled ones, or
+// the one channel a test names.
+func (p *pass) order(d model.Delivery) ([]model.Channel, error) {
+	if p.err != nil {
+		return nil, p.err
+	}
+	var out []model.Channel
+	for _, c := range p.channels {
+		if d.Only != 0 && c.ID == d.Only || d.Only == 0 && c.Enabled {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
 // process takes one claimed delivery one step: sent, passed on, retried
 // later, held, or failed.
-func (o *Outbox) process(ctx context.Context, id uint) {
+func (o *Outbox) process(ctx context.Context, p *pass, id uint) {
 	var d model.Delivery
 	if o.DB.First(&d, id).Error != nil {
 		return
 	}
 	now := o.Now()
-	cfg, _ := settings.LoadDelivery(o.DB)
+	var u model.User
+	found := o.DB.First(&u, d.UserID).Error == nil
+	// A delivery made before the copy was forgotten (users.Sync.Forget) was
+	// meant for an account of the panel Notif has left; the account under
+	// its id now is another panel's, another person's, whatever state the
+	// delivery was in. Read after the account, so an account the new
+	// panel's read wrote is never taken for the old one's.
+	if last, err := settings.ForgottenThrough(o.DB); err != nil {
+		o.set(&d, map[string]any{"status": model.DeliveryQueued, "next_at": now.Add(time.Minute).Unix()})
+		return
+	} else if d.ID <= last {
+		o.set(&d, map[string]any{"status": model.DeliveryCancelled, "error": "Notif was registered with another panel"})
+		return
+	}
+	cfg := p.cfg
 	if !d.Urgent {
 		if until := cfg.QuietUntil(now); !until.IsZero() {
 			o.set(&d, map[string]any{"status": model.DeliveryHeld, "next_at": until.Unix()})
 			return
 		}
 	}
-	var u model.User
 	// A deleted account still hears that it was deleted, from the copy.
-	if o.DB.First(&u, d.UserID).Error != nil || u.GoneAt > 0 && d.Kind != "deleted" {
+	if !found || u.GoneAt > 0 && d.Kind != "deleted" {
 		o.set(&d, map[string]any{"status": model.DeliveryFailed, "error": "the account is no longer on the panel"})
 		return
 	}
-	order, err := o.order(d)
+	order, err := p.order(d)
 	if err != nil {
 		o.set(&d, map[string]any{"status": model.DeliveryQueued, "next_at": now.Add(time.Minute).Unix()})
 		return
 	}
 	// Where the delivery stands: the channels already done with, and how
-	// often the current one has failed.
+	// often the current one has failed. An attempt that sent ends it: Notif
+	// stopped between writing the attempt and the delivery.
 	var attempts []model.Attempt
 	o.DB.Where("delivery_id = ?", d.ID).Order("id").Find(&attempts)
 	done := map[uint]bool{}
 	errs := map[uint]int{}
 	for _, a := range attempts {
 		switch a.Outcome {
+		case model.AttemptSent:
+			o.set(&d, map[string]any{"status": model.DeliverySent, "channel_id": a.ChannelID, "sent_at": a.At, "error": ""})
+			return
 		case model.AttemptNoAddress, model.AttemptRefused:
 			done[a.ChannelID] = true
 		case model.AttemptError:
@@ -238,28 +371,69 @@ func (o *Outbox) process(ctx context.Context, id uint) {
 			}
 		}
 	}
+	var blocks []model.Block
+	o.DB.Where("user_id = ?", u.ID).Find(&blocks)
+	blocked := map[uint]string{}
+	for _, b := range blocks {
+		blocked[b.ChannelID] = b.Value
+	}
 	lang := notices.Language(u, cfg.Language)
-	book := notices.Load(o.DB)
 	to := channel.Recipient{UserID: u.ID, Name: u.Name, Contact: u.Contact.V, Lang: lang}
+	subRead := false
 	for _, ch := range order {
 		if done[ch.ID] {
 			continue
+		}
+		if ctx.Err() != nil {
+			// Notif is stopping: the next channel waits for the next start,
+			// so a stop waits for one send at most.
+			o.set(&d, map[string]any{"status": model.DeliveryQueued, "next_at": now.Unix()})
+			return
 		}
 		sender, err := o.sender(ch)
 		if err != nil {
 			o.attempt(d, ch, model.AttemptRefused, "the channel's settings do not work: "+err.Error())
 			continue
 		}
+		// No address, or one this channel is blocked from, passes on at
+		// once, before a token of the channel's rate is spent on it.
+		if key := channel.AddressKey(ch.Kind, ch.Config.V); key != "" {
+			address := strings.TrimSpace(to.Contact[key])
+			if address == "" {
+				o.attempt(d, ch, model.AttemptNoAddress, channel.ErrNoAddress.Error())
+				continue
+			}
+			if v, ok := blocked[ch.ID]; ok && v == address {
+				o.attempt(d, ch, model.AttemptNoAddress, "the user stopped or blocked this bot at "+key+" "+address)
+				continue
+			}
+		}
+		msg := p.book.Render(d, u, ch, lang)
+		if !subRead && p.book.NamesSubURL(d, ch, lang) {
+			// The link is read when a notice names it, and never kept.
+			subRead = true
+			if u.SubURL, err = o.subURL(ctx, u.ID); err != nil {
+				o.set(&d, map[string]any{
+					"status": model.DeliveryQueued, "next_at": now.Add(time.Minute).Unix(),
+					"error": "the subscription link could not be read from the panel: " + err.Error(),
+				})
+				return
+			}
+			msg = p.book.Render(d, u, ch, lang)
+		}
 		if wait := o.take(ch); wait > 0 {
 			o.set(&d, map[string]any{"status": model.DeliveryQueued, "next_at": now.Add(wait).Unix()})
 			return
 		}
 		a := o.attempt(d, ch, model.AttemptStarted, "")
-		sctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		err = sender.Send(sctx, to, book.Render(d, u, ch, lang))
+		// A send in hand finishes within its own timeout even while Notif
+		// stops: cut short, its outcome would be unknown.
+		sctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), SendWait)
+		err = sender.Send(sctx, to, msg)
 		cancel()
 		var refused *channel.Refused
 		var retry *channel.Retry
+		var unknown *channel.Unknown
 		switch {
 		case err == nil:
 			o.finish(a, model.AttemptSent, "")
@@ -267,11 +441,23 @@ func (o *Outbox) process(ctx context.Context, id uint) {
 			return
 		case errors.Is(err, channel.ErrNoAddress):
 			o.finish(a, model.AttemptNoAddress, err.Error())
+		case errors.As(err, &unknown):
+			// The provider may have sent it: neither again nor elsewhere.
+			o.finish(a, model.AttemptError, unknown.Reason)
+			o.set(&d, map[string]any{"status": model.DeliveryUnknown, "channel_id": ch.ID, "error": unknown.Reason})
+			return
 		case errors.As(err, &refused):
 			detail := refused.Reason
-			if refused.Unlink != "" && o.Unlink != nil {
-				detail += " (" + refused.Unlink + " removed from the account)"
-				o.Unlink(u.ID, refused.Unlink)
+			if refused.Unlink != "" {
+				// The panel's card is not touched here: the channel is blocked
+				// for this address, and the key is taken off only when Notif
+				// wrote it (Unlink).
+				value := strings.TrimSpace(to.Contact[refused.Unlink])
+				detail += " (not tried again at " + refused.Unlink + " " + value + ")"
+				o.block(u.ID, ch.ID, value, refused.Reason)
+				if o.Unlink != nil {
+					o.Unlink(u.ID, refused.Unlink, value)
+				}
 			}
 			o.finish(a, model.AttemptRefused, detail)
 		default:
@@ -298,24 +484,32 @@ func (o *Outbox) process(ctx context.Context, id uint) {
 	o.set(&d, map[string]any{"status": model.DeliveryFailed, "channel_id": d.ChannelID, "error": msg})
 }
 
-// order is the channels to try: the admin's order of the enabled ones, or
-// the one channel a test names.
-func (o *Outbox) order(d model.Delivery) ([]model.Channel, error) {
-	var chs []model.Channel
-	q := o.DB.Where("enabled = ?", true)
-	if d.Only != 0 {
-		q = o.DB.Where("id = ?", d.Only)
+// LinkWait and SendWait bound one delivery's work in hand: reading the
+// link from the panel, then one channel's send. A stop waits for both
+// (main's shutdownWait is longer).
+const (
+	LinkWait = 10 * time.Second
+	SendWait = 30 * time.Second
+)
+
+// subURL is an account's subscription link, read from the panel.
+func (o *Outbox) subURL(ctx context.Context, userID uint) (string, error) {
+	if o.SubURL == nil {
+		return "", errors.New("not registered with a panel")
 	}
-	if err := q.Find(&chs).Error; err != nil {
-		return nil, err
+	rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), LinkWait)
+	defer cancel()
+	return o.SubURL(rctx, userID)
+}
+
+// block records that a channel no longer reaches a user at value.
+func (o *Outbox) block(userID, channelID uint, value, reason string) {
+	err := o.DB.Clauses(clause.OnConflict{UpdateAll: true}).Create(&model.Block{
+		UserID: userID, ChannelID: channelID, Value: value, Reason: reason, At: o.Now().Unix(),
+	}).Error
+	if err != nil {
+		log.Printf("outbox: block channel %d for %d: %v", channelID, userID, err)
 	}
-	sort.SliceStable(chs, func(i, j int) bool {
-		if chs[i].Position != chs[j].Position {
-			return chs[i].Position < chs[j].Position
-		}
-		return chs[i].ID < chs[j].ID
-	})
-	return chs, nil
 }
 
 func (o *Outbox) attempt(d model.Delivery, ch model.Channel, outcome, detail string) model.Attempt {
@@ -394,8 +588,15 @@ func (b *bucket) take(now time.Time) time.Duration {
 	return time.Duration((1 - b.tokens) * float64(per))
 }
 
+// OnceDays is how long a lasting key outlives its delivery: past the
+// furthest a schedule line can lie before an expiry (365 days), so a line
+// the log has forgotten is not crossed a second time.
+const OnceDays = 400
+
 // Prune deletes finished deliveries, and their attempts, older than the
-// retention the admin set.
+// retention the admin set — and with them the once-only hold of their
+// keys; the lasting keys are kept OnceDays, or the retention when it is
+// longer.
 func (o *Outbox) Prune() {
 	cfg, _ := settings.LoadDelivery(o.DB)
 	cut := o.Now().AddDate(0, 0, -cfg.RetentionDays).Unix()
@@ -403,4 +604,6 @@ func (o *Outbox) Prune() {
 	o.DB.Where("delivery_id IN (?)", o.DB.Model(&model.Delivery{}).Select("id").Where("status IN ? AND created_at < ?", finished, cut)).
 		Delete(&model.Attempt{})
 	o.DB.Where("status IN ? AND created_at < ?", finished, cut).Delete(&model.Delivery{})
+	onceCut := o.Now().AddDate(0, 0, -max(cfg.RetentionDays, OnceDays)).Unix()
+	o.DB.Where("at < ?", onceCut).Delete(&model.Once{})
 }

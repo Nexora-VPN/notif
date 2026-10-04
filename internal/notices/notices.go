@@ -162,4 +162,26 @@ func (b Book) Render(d model.Delivery, u model.User, ch model.Channel, lang stri
 	return m
 }
 
+// NamesSubURL reports whether a delivery through a channel, in a language,
+// uses the subscription link, which is read from the panel only then: its
+// words name {sub_url}, or the channel's own settings do — an SMS
+// template's variables (token3={sub_url}), the generic channel's templates
+// ({{.Vars.sub_url}}). A setting that merely mentions it costs one read
+// too many, never a link left out.
+func (b Book) NamesSubURL(d model.Delivery, ch model.Channel, lang string) bool {
+	t := model.Text{Title: d.Title, Body: d.Body}
+	if d.Kind != KindCustom {
+		t = b.Text(d.Kind, lang, ch.Kind)
+	}
+	if strings.Contains(t.Title+t.Body, "{sub_url}") {
+		return true
+	}
+	for _, v := range ch.Config.V {
+		if strings.Contains(v, "sub_url") {
+			return true
+		}
+	}
+	return false
+}
+
 func fill(s string, vars map[string]string) string { return channel.Fill(s, vars) }
