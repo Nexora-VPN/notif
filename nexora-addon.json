@@ -24,9 +24,6 @@
     "user.generated"
   ],
   "health": "/health",
-  "requires": {
-    "panel": ">=0.0.2"
-  },
   "install": {
     "binary": {
       "linux-amd64": "notif-linux-amd64.tar.gz",
@@ -49,20 +46,20 @@
         "type": "port"
       },
       {
+        "help": {
+          "en": "Notif's admin, its API and the panel's calls are all under this path; the root answers nothing. A random one keeps scanners off it. Empty: the root.",
+          "fa": "ادمین نوتیف، API آن و درخواست‌های پنل همه زیر این مسیرند؛ ریشه جوابی نمی‌دهد. خالی: ریشه.",
+          "ru": "Админка Notif, её API и вызовы панели — под этим путём; корень не отвечает. Пусто — корень.",
+          "zh": "Notif 的管理后台、API 和面板请求都在此路径下；根路径不应答。留空：根路径。"
+        },
         "key": "base_path",
-        "type": "path",
         "label": {
           "en": "Admin path",
           "fa": "مسیر ادمین",
           "ru": "Путь админки",
           "zh": "管理后台路径"
         },
-        "help": {
-          "en": "Notif's admin, its API and the panel's calls are all under this path; the root answers nothing. A random one keeps scanners off it. Empty: the root.",
-          "fa": "ادمین نوتیف، API آن و درخواست‌های پنل همه زیر این مسیرند؛ ریشه جوابی نمی‌دهد. خالی: ریشه.",
-          "ru": "Админка Notif, её API и вызовы панели — под этим путём; корень не отвечает. Пусто — корень.",
-          "zh": "Notif 的管理后台、API 和面板请求都在此路径下；根路径不应答。留空：根路径。"
-        }
+        "type": "path"
       },
       {
         "choices": [
@@ -116,42 +113,42 @@
         "type": "secret"
       },
       {
+        "help": {
+          "en": "Where you open Notif, scheme, host and port only, e.g. https://notif.example.com or https://203.0.113.9:8443; the admin path goes after it. Can be set later in Notif.",
+          "fa": "آدرسی که نوتیف را با آن باز می‌کنید، فقط پروتکل، میزبان و پورت؛ مسیر ادمین بعدش می‌آید. بعداً هم می‌شود تنظیمش کرد.",
+          "ru": "Адрес, по которому вы открываете Notif: только схема, хост и порт; путь админки идёт после. Можно задать позже.",
+          "zh": "您打开 Notif 的地址，只含协议、主机和端口，例如 https://notif.example.com；管理路径接在其后。也可稍后设置。"
+        },
         "key": "public_url",
-        "type": "url",
         "label": {
           "en": "Notif's public address",
           "fa": "آدرس عمومی نوتیف",
           "ru": "Публичный адрес Notif",
           "zh": "Notif 的公开地址"
         },
-        "help": {
-          "en": "Where you open Notif, scheme, host and port only, e.g. https://notif.example.com or https://203.0.113.9:8443; the admin path goes after it. Can be set later in Notif.",
-          "fa": "آدرسی که نوتیف را با آن باز می‌کنید، فقط پروتکل، میزبان و پورت؛ مسیر ادمین بعدش می‌آید. بعداً هم می‌شود تنظیمش کرد.",
-          "ru": "Адрес, по которому вы открываете Notif: только схема, хост и порт; путь админки идёт после. Можно задать позже.",
-          "zh": "您打开 Notif 的地址，只含协议、主机和端口，例如 https://notif.example.com；管理路径接在其后。也可稍后设置。"
-        }
+        "type": "url"
       },
       {
-        "key": "https",
-        "type": "choice",
         "choices": [
           "off",
           "acme",
           "self-signed"
         ],
         "default": "off",
+        "help": {
+          "en": "acme: a free certificate for the public address's domain, on port 443 here; the domain must point here. self-signed: Notif's own, for an address by IP — the browser warns once. off: none, or your own proxy.",
+          "fa": "acme: گواهی رایگان برای دامنهٔ آدرس عمومی، روی ۴۴۳ همین سرور. self-signed: گواهی خود نوتیف برای آدرس با IP. off: بدون HTTPS.",
+          "ru": "acme: бесплатный сертификат для домена публичного адреса, на 443. self-signed: свой сертификат для адреса по IP. off: без HTTPS.",
+          "zh": "acme：在本机 443 端口为公开地址的域名获取免费证书。self-signed：Notif 自己的证书，用于 IP 地址。off：不用 HTTPS 或用您自己的代理。"
+        },
+        "key": "https",
         "label": {
           "en": "HTTPS certificate",
           "fa": "گواهی HTTPS",
           "ru": "Сертификат HTTPS",
           "zh": "HTTPS 证书"
         },
-        "help": {
-          "en": "acme: a free certificate for the public address's domain, on port 443 here; the domain must point here. self-signed: Notif's own, for an address by IP — the browser warns once. off: none, or your own proxy.",
-          "fa": "acme: گواهی رایگان برای دامنهٔ آدرس عمومی، روی ۴۴۳ همین سرور. self-signed: گواهی خود نوتیف برای آدرس با IP. off: بدون HTTPS.",
-          "ru": "acme: бесплатный сертификат для домена публичного адреса, на 443. self-signed: свой сертификат для адреса по IP. off: без HTTPS.",
-          "zh": "acme：在本机 443 端口为公开地址的域名获取免费证书。self-signed：Notif 自己的证书，用于 IP 地址。off：不用 HTTPS 或用您自己的代理。"
-        }
+        "type": "choice"
       },
       {
         "help": {
@@ -174,6 +171,9 @@
   "license": "AGPL-3.0",
   "name": "Nexora Notif",
   "publisher": "Nexora",
+  "requires": {
+    "panel": "\u003e=0.0.2"
+  },
   "scopes": [
     {
       "purpose": "to read the accounts it tells about: their contact details, expiry and traffic",
@@ -185,8 +185,9 @@
     }
   ],
   "setup": "/nexora/setup",
+  "signature": "KAZ0J/1a1dbgGDmr0VFEP0uQOCb8/wrXCD4dXRIGvHxX3CdqaKwVZhJOpNXBC82BUhViur2jIjQ70cmSvyslAw==",
   "slug": "notif",
   "ui": "/",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "webhook": "/nexora/events"
 }
