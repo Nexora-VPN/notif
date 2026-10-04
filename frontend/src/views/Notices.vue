@@ -275,6 +275,7 @@ function customised(n: Notice) {
             id="nt"
             :model-value="current.title"
             :placeholder="fallback.title"
+            :dir="lang === 'fa' ? 'rtl' : 'ltr'"
             @update:model-value="(v) => set('title', v ?? '')"
           />
         </div>
@@ -286,6 +287,7 @@ function customised(n: Notice) {
             :placeholder="fallback.body"
             rows="4"
             auto-resize
+            :dir="lang === 'fa' ? 'rtl' : 'ltr'"
             @update:model-value="(v) => set('body', v ?? '')"
           />
           <div class="chips">
@@ -302,7 +304,7 @@ function customised(n: Notice) {
           </div>
           <small class="muted">{{ t('notices.emptyIsDefault') }}</small>
         </div>
-        <div v-if="preview" class="preview">
+        <div v-if="preview" class="preview" :dir="lang === 'fa' ? 'rtl' : 'ltr'">
           <small class="muted">{{ t('notices.preview') }}</small>
           <b>{{ preview.title }}</b>
           <p>{{ preview.body }}</p>

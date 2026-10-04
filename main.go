@@ -7,6 +7,8 @@
 //
 //	notif                                    serve (the default)
 //	notif admin reset-password -user U -pass P
+//	notif backup [-o file]                   a copy of the database (SQLite)
+//	notif restore -i file                    put a copy back, Notif stopped
 //	notif version
 //
 // Configuration comes from the environment, the way the install passes it
@@ -26,13 +28,18 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
+	// The zone database inside the binary: a host installed as a service
+	// may have none, and the quiet hours and dates are counted in a zone.
+	_ "time/tzdata"
 
 	"github.com/nexora-vpn/addon-kit/addon"
 	"github.com/nexora-vpn/notif/frontend"
 	"github.com/nexora-vpn/notif/internal/admins"
 	"github.com/nexora-vpn/notif/internal/api"
+	"github.com/nexora-vpn/notif/internal/backup"
 	"github.com/nexora-vpn/notif/internal/config"
 	"github.com/nexora-vpn/notif/internal/db"
 )
@@ -56,10 +63,14 @@ func main() {
 		err = run()
 	case "admin":
 		err = adminCmd(args)
+	case "backup":
+		err = backupCmd(args)
+	case "restore":
+		err = restoreCmd(args)
 	case "version", "-v", "--version":
 		fmt.Println("notif", version())
 	default:
-		err = fmt.Errorf("unknown command %q: run, admin reset-password, version", cmd)
+		err = fmt.Errorf("unknown command %q: run, admin reset-password, backup, restore, version", cmd)
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -108,6 +119,7 @@ func run() error {
 	bg, stopBg := context.WithCancel(context.Background())
 	defer stopBg()
 	go app.Run(bg)
+	go backup.Run(bg, gdb, cfg)
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: app.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	log.Printf("nexora notif %s on :%s (%s)", a.Manifest().Version, cfg.Port, cfg.Driver)
 	errs := make(chan error, 1)
@@ -155,5 +167,52 @@ func adminCmd(args []string) error {
 		return err
 	}
 	fmt.Printf("the password of %q is set; its two-factor sign-in is off and its sessions ended\n", *user)
+	return nil
+}
+
+// backupCmd writes a copy of the database now.
+func backupCmd(args []string) error {
+	fl := flag.NewFlagSet("backup", flag.ContinueOnError)
+	out := fl.String("o", "", "where to write the copy (default <data>/backups/notif-<time>.db)")
+	if err := fl.Parse(args); err != nil {
+		return err
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	gdb, err := db.Open(cfg)
+	if err != nil {
+		return err
+	}
+	path := *out
+	if path == "" {
+		path = filepath.Join(backup.Dir(cfg), "notif-"+time.Now().UTC().Format("20060102-150405")+".db")
+	}
+	if err := backup.Snapshot(gdb, cfg, path); err != nil {
+		return err
+	}
+	fmt.Println("written", path)
+	return nil
+}
+
+// restoreCmd puts a copy back; Notif must be stopped.
+func restoreCmd(args []string) error {
+	fl := flag.NewFlagSet("restore", flag.ContinueOnError)
+	in := fl.String("i", "", "the copy to put back")
+	if err := fl.Parse(args); err != nil {
+		return err
+	}
+	if *in == "" {
+		return errors.New("-i is required")
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	if err := backup.Restore(cfg, *in); err != nil {
+		return err
+	}
+	fmt.Println("restored; the database it replaced is", cfg.DSN+".before-restore — start Notif again")
 	return nil
 }

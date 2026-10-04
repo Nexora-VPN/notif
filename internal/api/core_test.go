@@ -145,3 +145,19 @@ func TestAnAccountsLinks(t *testing.T) {
 		t.Fatalf("unlinking a phone: %d", w.Code)
 	}
 }
+
+// TestChangingTheQuietHoursLooksAgain: a notice held for the quiet hours is
+// released when they are switched off.
+func TestChangingTheQuietHoursLooksAgain(t *testing.T) {
+	_, gdb, h := newServer(t)
+	c := session(t, call(t, h, "POST", "/api/login", `{"username":"admin","password":"correct horse"}`))
+	gdb.Create(&model.Delivery{Key: "k", UserID: 1, Kind: "custom", Status: model.DeliveryHeld, NextAt: 4102444800})
+	if w := call(t, h, "PUT", "/api/settings/delivery", `{"quietEnabled":false,"quietFrom":"22:00","quietTo":"08:00","language":"en","retentionDays":90}`, c); w.Code != http.StatusNoContent {
+		t.Fatalf("save: %d", w.Code)
+	}
+	var d model.Delivery
+	gdb.First(&d)
+	if d.Status != model.DeliveryQueued || d.NextAt > 4000000000 {
+		t.Fatalf("held delivery after the quiet hours went off: %+v", d)
+	}
+}

@@ -290,11 +290,11 @@ onBeforeUnmount(() => window.clearTimeout(timer))
       </div>
       <div class="field">
         <label for="mt">{{ t('notices.textTitle') }}</label>
-        <InputText id="mt" v-model="title" maxlength="200" />
+        <InputText id="mt" v-model="title" maxlength="200" dir="auto" />
       </div>
       <div class="field">
         <label for="mb">{{ t('notices.textBody') }}</label>
-        <Textarea id="mb" v-model="body" rows="4" auto-resize maxlength="4000" />
+        <Textarea id="mb" v-model="body" rows="4" auto-resize maxlength="4000" dir="auto" />
         <div class="tags">
           <Button
             v-for="v in vars"
@@ -344,7 +344,7 @@ onBeforeUnmount(() => window.clearTimeout(timer))
         <small v-if="plan.sample?.length" class="muted mono" dir="ltr">
           {{ plan.sample.join(', ') }}{{ plan.total > plan.sample.length ? ', …' : '' }}
         </small>
-        <div v-if="plan.preview" class="preview">
+        <div v-if="plan.preview" class="preview" dir="auto">
           <small class="muted">{{ t('notices.preview') }}</small>
           <b v-if="plan.preview.title">{{ plan.preview.title }}</b>
           <p>{{ plan.preview.body }}</p>

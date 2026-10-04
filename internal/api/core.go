@@ -435,6 +435,11 @@ func (s *Server) handleDeliverySettingsSave(w http.ResponseWriter, r *http.Reque
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	// What waits for the quiet hours to end is looked at again under the
+	// new ones: hours switched off or moved release it now, and hours still
+	// on hold it again until their new end.
+	s.db.Model(&model.Delivery{}).Where("status = ?", model.DeliveryHeld).
+		Updates(map[string]any{"status": model.DeliveryQueued, "next_at": time.Now().Unix()})
 	s.outbox.Kick()
 	w.WriteHeader(http.StatusNoContent)
 }

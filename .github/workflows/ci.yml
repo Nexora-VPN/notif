@@ -5,7 +5,7 @@ on:
   pull_request:
 jobs:
   go:
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-2
     services:
       postgres:
         image: postgres:17-alpine
@@ -31,7 +31,7 @@ jobs:
         run: go run github.com/nexora-vpn/addon-kit/cmd/nexora-addon check nexora-addon.json
       - run: sh -n install.sh && sh -n scripts/sign.sh
   web:
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-2
     defaults:
       run:
         working-directory: frontend

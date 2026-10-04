@@ -8,18 +8,8 @@ Each notice is written once and goes through the first of the user's
 channels that reaches them, in the order the admin sets, so a paid SMS is
 sent only when the free channels could not deliver.
 
-> **Status: in development.** In place: registration with a panel, the
-> admin web with two-factor sign-in, SQLite or PostgreSQL, the delivery core
-> (channels in a fall-back order, retries, quiet hours, a rate per channel,
-> the delivery log); the Telegram, Bale, Soroush Plus and Rubika bots with
-> linking by subscription link or link code; SMS through Kavenegar and
-> Faraz SMS; email over SMTP; ntfy; and the generic HTTP channel with
-> presets (SMS.ru, SMSC, SMS Aero, MTS Exolve, VK, LINE, Matrix, Pushover);
-> the account's notices — the panel's events, an admin's edits, and the
-> admin's own schedule of expiry and traffic warnings — in the admin's own
-> words in four languages; and the admin's own messages to one account or
-> to a group picked by the panel's filters, counted per channel (SMS apart)
-> before they go, cancellable, with a report.
+The documentation: [English](docs/en.md) · [فارسی](docs/fa.md) ·
+[Русский](docs/ru.md) · [中文](docs/zh.md).
 
 A user links a bot by sending it their subscription link (or the link code
 the admin hands out); the chat id is written into the account's contact
@@ -46,6 +36,12 @@ sh install.sh --method docker --opt port=8097 --opt admin_password=… \
 
 `--method script` installs the binary under systemd instead of Docker. Run
 the same command again to update; `--uninstall [--purge]` removes it.
+
+## Back up
+
+On SQLite, a copy of the database is kept daily in `<data>/backups` (seven
+kept); `notif backup -o file` takes one by hand, and `notif restore -i file`
+puts one back with Notif stopped. On PostgreSQL, use `pg_dump`.
 
 ## Develop
 
