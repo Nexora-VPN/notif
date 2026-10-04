@@ -43,6 +43,7 @@ function when(unix: number) {
   return unix ? new Date(unix * 1000).toLocaleString(locale.value) : '—'
 }
 function noticeName(k: string) {
+  if (te('notices.kinds.' + k + '.name')) return t('notices.kinds.' + k + '.name')
   return te('log.kinds.' + k) ? t('log.kinds.' + k) : k
 }
 

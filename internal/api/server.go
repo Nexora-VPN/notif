@@ -26,6 +26,7 @@ import (
 	"github.com/nexora-vpn/notif/internal/outbox"
 	"github.com/nexora-vpn/notif/internal/settings"
 	"github.com/nexora-vpn/notif/internal/users"
+	"github.com/nexora-vpn/notif/internal/watch"
 	"gorm.io/gorm"
 )
 
@@ -48,6 +49,8 @@ type Server struct {
 	// what users write to the bots.
 	links *links.Links
 	bots  *bots.Manager
+	// watch decides when a user hears something.
+	watch *watch.Watch
 
 	mu      sync.Mutex
 	pending map[string]pendingLogin // sign-in token → the admin waiting for a code
@@ -85,6 +88,8 @@ func New(gdb *gorm.DB, a *addon.Addon, cfg config.Config, version string, spa fs
 		return nil
 	}}
 	s.bots = bots.New(gdb, s.links)
+	s.watch = &watch.Watch{DB: gdb, Outbox: s.outbox}
+	s.users.Changed = s.watch.Changed
 	s.outbox.Unlink = func(userID uint, key string) {
 		go func() {
 			if err := s.links.Set(context.Background(), userID, key, ""); err != nil {
@@ -132,6 +137,7 @@ func (s *Server) Run(ctx context.Context) {
 	go s.outbox.Run(ctx)
 	go s.users.Run(ctx)
 	go s.bots.Run(ctx)
+	go s.watch.Run(ctx)
 	day := time.NewTicker(24 * time.Hour)
 	defer day.Stop()
 	s.outbox.Prune()
@@ -178,6 +184,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/status", s.signedIn(s.handleStatus))
 	s.mountCore(mux)
 	s.mountUsers(mux)
+	s.mountNotices(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeErr(w, http.StatusNotFound, "no such API route")
 	})
@@ -276,7 +283,8 @@ func spaHandler(dist fs.FS) http.Handler {
 	})
 }
 
-// userEvent keeps the copy in step with what an event says.
+// userEvent keeps the copy in step with what an event says, and raises
+// the notice it calls for (internal/watch).
 func (s *Server) userEvent(e addon.Event) {
 	var data struct {
 		UserID uint   `json:"userId"`
@@ -284,24 +292,40 @@ func (s *Server) userEvent(e addon.Event) {
 		IDs    []uint `json:"ids"`
 	}
 	_ = json.Unmarshal(e.Data, &data)
+	ctx := context.Background()
+	copyOf := func(id uint) model.User {
+		var u model.User
+		s.db.First(&u, id)
+		return u
+	}
 	switch {
 	case e.Event == "user.deleted" && data.UserID != 0:
+		// Told from the copy, which still has the account.
+		s.watch.Event(e, copyOf(data.UserID))
 		s.users.Gone(data.UserID)
 	case e.Event == "user.bulk" && data.Op == "delete":
 		for _, id := range data.IDs {
+			if u := copyOf(id); u.ID != 0 && u.GoneAt == 0 {
+				s.watch.Deleted(u, e.ID)
+			}
 			s.users.Gone(id)
 		}
 	case e.Event == "user.bulk" || e.Event == "user.generated":
+		// One event for many accounts says neither what changed on each nor
+		// how: a read of the edits finds that out, and tells it.
 		go func() {
-			if err := s.users.Edits(context.Background()); err != nil {
+			if err := s.users.Edits(ctx); err != nil {
 				log.Printf("users: after %s: %v", e.Event, err)
 			}
 		}()
 	case data.UserID != 0:
 		go func() {
-			if _, err := s.users.One(context.Background(), data.UserID); err != nil {
+			u, err := s.users.One(ctx, data.UserID)
+			if err != nil {
 				log.Printf("users: after %s: %v", e.Event, err)
+				u = copyOf(data.UserID)
 			}
+			s.watch.Event(e, u)
 		}()
 	}
 }

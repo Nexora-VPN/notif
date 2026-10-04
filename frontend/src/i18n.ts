@@ -14,6 +14,7 @@ const en = {
     log: 'Log',
     settings: 'Settings',
     users: 'Accounts',
+    notices: 'Notices',
   },
   login: {
     title: 'Sign in',
@@ -300,6 +301,110 @@ const en = {
     ntfyHelp:
       'The user subscribes to this address in the ntfy app. Whoever knows it can read it: hand it to this user only.',
   },
+  notices: {
+    title: 'Notices',
+    schedule: 'Schedule',
+    expiryDays: 'Days before the expiry',
+    expiryDaysHelp:
+      'Comma separated, e.g. 3, 1. Each is said once and re-arms when the account is renewed. Empty switches it off.',
+    trafficPercents: 'Traffic used (percent)',
+    trafficPercentsHelp:
+      'Comma separated, e.g. 80, 95. Re-arms when traffic is added or a new cycle starts.',
+    calendar: 'Dates',
+    calendars: {
+      auto: 'Persian calendar in Persian, Gregorian elsewhere',
+      jalali: 'Persian calendar',
+      gregorian: 'Gregorian calendar',
+    },
+    families: {
+      schedule: 'On your schedule',
+      event: 'When the panel says',
+      edit: 'When an admin changes an account',
+    },
+    urgent: 'urgent',
+    customised: 'your words',
+    edit: 'Words',
+    on: 'Sent',
+    urgentHelp: 'Urgent: not held by the quiet hours',
+    forChannel: 'For',
+    allChannels: 'Every channel',
+    textTitle: 'Title',
+    textBody: 'Text',
+    emptyIsDefault: 'Empty uses the default shown faintly. Click a variable to add it.',
+    preview: 'Preview, for a sample account',
+    restore: 'Restore the default',
+    kinds: {
+      expiring: {
+        name: 'Expiry coming',
+        about: 'The days before the expiry you set above.',
+      },
+      traffic_warning: {
+        name: 'Traffic running low',
+        about: 'At the shares of the traffic you set above.',
+      },
+      renewed: {
+        name: 'Renewed',
+        about: 'The account was renewed on the panel.',
+      },
+      expired: {
+        name: 'Expired',
+        about: 'The account’s time ran out.',
+      },
+      quota_reached: {
+        name: 'Traffic used up',
+        about: 'The account used all its traffic.',
+      },
+      created: {
+        name: 'Account created',
+        about: 'A new account, with its subscription link.',
+      },
+      disabled: {
+        name: 'Seller’s allowance ran out',
+        about:
+          'A reseller’s account is switched off because the reseller’s own allowance is used up.',
+      },
+      restored: {
+        name: 'Working again',
+        about: 'The panel switched the account back on.',
+      },
+      activated: {
+        name: 'Plan started',
+        about: 'A plan counted from the first connection started.',
+      },
+      first_fetch: {
+        name: 'Subscription added',
+        about: 'The subscription was added to an app for the first time.',
+      },
+      device_limit: {
+        name: 'Device limit',
+        about: 'A device was refused: the device limit is full.',
+      },
+      deleted: {
+        name: 'Deleted',
+        about: 'The account was deleted.',
+      },
+      traffic_added: {
+        name: 'Traffic added',
+        about: 'An admin added traffic to the account.',
+      },
+      expiry_changed: {
+        name: 'Expiry changed',
+        about: 'An admin moved the account’s date.',
+      },
+      usage_reset: {
+        name: 'Traffic reset',
+        about: 'The account’s traffic was reset, by hand or by its cycle.',
+      },
+      admin_disabled: {
+        name: 'Switched off',
+        about: 'An admin switched the account off.',
+      },
+      admin_enabled: {
+        name: 'Switched on',
+        about: 'An admin switched the account back on.',
+      },
+    },
+  },
 }
 
 type Messages = typeof en
@@ -315,6 +420,7 @@ const fa: Messages = {
     log: 'گزارش ارسال',
     settings: 'تنظیمات',
     users: 'حساب‌ها',
+    notices: 'اعلان‌ها',
   },
   login: {
     title: 'ورود',
@@ -601,6 +707,110 @@ const fa: Messages = {
     ntfyHelp:
       'کاربر در برنامهٔ ntfy مشترک این نشانی می‌شود. هر کس آن را بداند می‌تواند بخواند: فقط به همین کاربر بدهید.',
   },
+  notices: {
+    title: 'اعلان‌ها',
+    schedule: 'زمان‌بندی',
+    expiryDays: 'چند روز پیش از انقضا',
+    expiryDaysHelp:
+      'با ویرگول جدا کنید، مثل 3, 1. هر کدام یک بار گفته می‌شود و با تمدید حساب دوباره فعال می‌شود. خالی یعنی خاموش.',
+    trafficPercents: 'درصد مصرف ترافیک',
+    trafficPercentsHelp:
+      'با ویرگول جدا کنید، مثل 80, 95. با افزایش ترافیک یا شروع دورهٔ تازه دوباره فعال می‌شود.',
+    calendar: 'تاریخ‌ها',
+    calendars: {
+      auto: 'شمسی برای فارسی، میلادی برای بقیه',
+      jalali: 'شمسی',
+      gregorian: 'میلادی',
+    },
+    families: {
+      schedule: 'طبق زمان‌بندی شما',
+      event: 'وقتی پنل خبر می‌دهد',
+      edit: 'وقتی ادمین حساب را تغییر می‌دهد',
+    },
+    urgent: 'فوری',
+    customised: 'متن شما',
+    edit: 'متن‌ها',
+    on: 'ارسال شود',
+    urgentHelp: 'فوری: ساعت سکوت نگهش نمی‌دارد',
+    forChannel: 'برای',
+    allChannels: 'همهٔ پیام‌رسان‌ها',
+    textTitle: 'عنوان',
+    textBody: 'متن',
+    emptyIsDefault:
+      'خالی یعنی همان متن پیش‌فرض که کم‌رنگ دیده می‌شود. برای افزودن متغیر روی آن بزنید.',
+    preview: 'پیش‌نمایش برای یک حساب نمونه',
+    restore: 'بازگشت به پیش‌فرض',
+    kinds: {
+      expiring: {
+        name: 'نزدیک انقضا',
+        about: 'چند روز پیش از انقضا، طبق زمان‌بندی بالا.',
+      },
+      traffic_warning: {
+        name: 'ترافیک رو به اتمام',
+        about: 'در درصدهایی از ترافیک که بالا تعیین کرده‌اید.',
+      },
+      renewed: {
+        name: 'تمدید',
+        about: 'حساب در پنل تمدید شد.',
+      },
+      expired: {
+        name: 'انقضا',
+        about: 'مدت حساب تمام شد.',
+      },
+      quota_reached: {
+        name: 'تمام شدن ترافیک',
+        about: 'حساب همهٔ ترافیکش را مصرف کرد.',
+      },
+      created: {
+        name: 'ساخت حساب',
+        about: 'حساب تازه، همراه لینک اشتراک.',
+      },
+      disabled: {
+        name: 'تمام شدن سهمیهٔ فروشنده',
+        about: 'حساب یک نماینده غیرفعال شد چون سهمیهٔ خود نماینده تمام شده.',
+      },
+      restored: {
+        name: 'فعال شدن دوباره',
+        about: 'پنل حساب را دوباره فعال کرد.',
+      },
+      activated: {
+        name: 'شروع دوره',
+        about: 'دوره‌ای که از اولین اتصال حساب می‌شود شروع شد.',
+      },
+      first_fetch: {
+        name: 'افزودن اشتراک',
+        about: 'اشتراک برای اولین بار به یک برنامه اضافه شد.',
+      },
+      device_limit: {
+        name: 'سقف دستگاه',
+        about: 'یک دستگاه پذیرفته نشد چون سقف دستگاه پر است.',
+      },
+      deleted: {
+        name: 'حذف',
+        about: 'حساب حذف شد.',
+      },
+      traffic_added: {
+        name: 'افزایش ترافیک',
+        about: 'ادمین به حساب ترافیک اضافه کرد.',
+      },
+      expiry_changed: {
+        name: 'تغییر تاریخ انقضا',
+        about: 'ادمین تاریخ حساب را عوض کرد.',
+      },
+      usage_reset: {
+        name: 'صفر شدن مصرف',
+        about: 'مصرف حساب صفر شد، دستی یا با شروع دورهٔ تازه.',
+      },
+      admin_disabled: {
+        name: 'غیرفعال شدن',
+        about: 'ادمین حساب را غیرفعال کرد.',
+      },
+      admin_enabled: {
+        name: 'فعال شدن',
+        about: 'ادمین حساب را دوباره فعال کرد.',
+      },
+    },
+  },
 }
 
 const ru: Messages = {
@@ -614,6 +824,7 @@ const ru: Messages = {
     log: 'Журнал',
     settings: 'Настройки',
     users: 'Аккаунты',
+    notices: 'Уведомления',
   },
   login: {
     title: 'Вход',
@@ -901,6 +1112,110 @@ const ru: Messages = {
     ntfyHelp:
       'Пользователь подписывается на этот адрес в приложении ntfy. Кто знает адрес, тот может читать: передайте его только этому пользователю.',
   },
+  notices: {
+    title: 'Уведомления',
+    schedule: 'Расписание',
+    expiryDays: 'За сколько дней до окончания',
+    expiryDaysHelp:
+      'Через запятую, например 3, 1. Каждое говорится один раз и снова включается при продлении. Пусто — выключено.',
+    trafficPercents: 'Израсходовано трафика (процент)',
+    trafficPercentsHelp:
+      'Через запятую, например 80, 95. Снова включается при добавлении трафика или новом периоде.',
+    calendar: 'Даты',
+    calendars: {
+      auto: 'Иранский календарь на персидском, григорианский в остальных',
+      jalali: 'Иранский календарь',
+      gregorian: 'Григорианский календарь',
+    },
+    families: {
+      schedule: 'По вашему расписанию',
+      event: 'Когда сообщает панель',
+      edit: 'Когда администратор меняет аккаунт',
+    },
+    urgent: 'срочно',
+    customised: 'ваш текст',
+    edit: 'Текст',
+    on: 'Отправлять',
+    urgentHelp: 'Срочно: тихие часы не задерживают',
+    forChannel: 'Для',
+    allChannels: 'Все каналы',
+    textTitle: 'Заголовок',
+    textBody: 'Текст',
+    emptyIsDefault:
+      'Пусто — текст по умолчанию, показанный бледно. Нажмите на переменную, чтобы добавить её.',
+    preview: 'Предпросмотр для примерного аккаунта',
+    restore: 'Вернуть по умолчанию',
+    kinds: {
+      expiring: {
+        name: 'Скоро истечёт срок',
+        about: 'За столько дней до окончания, сколько задано выше.',
+      },
+      traffic_warning: {
+        name: 'Трафик заканчивается',
+        about: 'При долях трафика, заданных выше.',
+      },
+      renewed: {
+        name: 'Продление',
+        about: 'Аккаунт продлён в панели.',
+      },
+      expired: {
+        name: 'Срок истёк',
+        about: 'Срок аккаунта закончился.',
+      },
+      quota_reached: {
+        name: 'Трафик исчерпан',
+        about: 'Аккаунт израсходовал весь трафик.',
+      },
+      created: {
+        name: 'Аккаунт создан',
+        about: 'Новый аккаунт со ссылкой на подписку.',
+      },
+      disabled: {
+        name: 'Лимит продавца исчерпан',
+        about: 'Аккаунт реселлера отключён: закончился лимит самого реселлера.',
+      },
+      restored: {
+        name: 'Снова работает',
+        about: 'Панель снова включила аккаунт.',
+      },
+      activated: {
+        name: 'Тариф начался',
+        about: 'Начался тариф, отсчитываемый от первого подключения.',
+      },
+      first_fetch: {
+        name: 'Подписка добавлена',
+        about: 'Подписку впервые добавили в приложение.',
+      },
+      device_limit: {
+        name: 'Лимит устройств',
+        about: 'Устройство не подключено: лимит устройств исчерпан.',
+      },
+      deleted: {
+        name: 'Удаление',
+        about: 'Аккаунт удалён.',
+      },
+      traffic_added: {
+        name: 'Трафик добавлен',
+        about: 'Администратор добавил трафик.',
+      },
+      expiry_changed: {
+        name: 'Срок изменён',
+        about: 'Администратор изменил дату аккаунта.',
+      },
+      usage_reset: {
+        name: 'Трафик обнулён',
+        about: 'Трафик аккаунта обнулён вручную или новым периодом.',
+      },
+      admin_disabled: {
+        name: 'Отключён',
+        about: 'Администратор отключил аккаунт.',
+      },
+      admin_enabled: {
+        name: 'Включён',
+        about: 'Администратор снова включил аккаунт.',
+      },
+    },
+  },
 }
 
 const zh: Messages = {
@@ -914,6 +1229,7 @@ const zh: Messages = {
     log: '发送记录',
     settings: '设置',
     users: '账户',
+    notices: '通知',
   },
   login: {
     title: '登录',
@@ -1194,6 +1510,107 @@ const zh: Messages = {
     },
     ntfyOn: '开启 ntfy',
     ntfyHelp: '用户在 ntfy 应用中订阅此地址。知道地址的人都能读取：只交给该用户。',
+  },
+  notices: {
+    title: '通知',
+    schedule: '时间安排',
+    expiryDays: '到期前几天',
+    expiryDaysHelp: '用逗号分隔，例如 3, 1。每条只发送一次，账户续期后重新生效。留空即关闭。',
+    trafficPercents: '已用流量（百分比）',
+    trafficPercentsHelp: '用逗号分隔，例如 80, 95。增加流量或进入新周期后重新生效。',
+    calendar: '日期',
+    calendars: {
+      auto: '波斯语用伊朗历，其他用公历',
+      jalali: '伊朗历',
+      gregorian: '公历',
+    },
+    families: {
+      schedule: '按您的安排',
+      event: '面板通知时',
+      edit: '管理员更改账户时',
+    },
+    urgent: '紧急',
+    customised: '自定义文字',
+    edit: '文字',
+    on: '发送',
+    urgentHelp: '紧急：不受静默时段限制',
+    forChannel: '用于',
+    allChannels: '所有渠道',
+    textTitle: '标题',
+    textBody: '正文',
+    emptyIsDefault: '留空则使用淡色显示的默认文字。点击变量即可插入。',
+    preview: '示例账户预览',
+    restore: '恢复默认',
+    kinds: {
+      expiring: {
+        name: '即将到期',
+        about: '按上方设置的到期前天数。',
+      },
+      traffic_warning: {
+        name: '流量即将用完',
+        about: '按上方设置的流量比例。',
+      },
+      renewed: {
+        name: '续期',
+        about: '账户已在面板中续期。',
+      },
+      expired: {
+        name: '已到期',
+        about: '账户时间已用完。',
+      },
+      quota_reached: {
+        name: '流量用完',
+        about: '账户已用完全部流量。',
+      },
+      created: {
+        name: '账户创建',
+        about: '新账户，附订阅链接。',
+      },
+      disabled: {
+        name: '销售商额度用完',
+        about: '代理商的账户因代理商自身额度用完而停用。',
+      },
+      restored: {
+        name: '恢复使用',
+        about: '面板重新启用了账户。',
+      },
+      activated: {
+        name: '套餐开始',
+        about: '自首次连接起计算的套餐已开始。',
+      },
+      first_fetch: {
+        name: '订阅已添加',
+        about: '订阅首次被添加到应用中。',
+      },
+      device_limit: {
+        name: '设备上限',
+        about: '设备被拒绝：设备数已满。',
+      },
+      deleted: {
+        name: '删除',
+        about: '账户已被删除。',
+      },
+      traffic_added: {
+        name: '增加流量',
+        about: '管理员为账户增加了流量。',
+      },
+      expiry_changed: {
+        name: '到期日更改',
+        about: '管理员更改了账户日期。',
+      },
+      usage_reset: {
+        name: '流量重置',
+        about: '账户流量被手动或按周期重置。',
+      },
+      admin_disabled: {
+        name: '停用',
+        about: '管理员停用了账户。',
+      },
+      admin_enabled: {
+        name: '启用',
+        about: '管理员重新启用了账户。',
+      },
+    },
   },
 }
 

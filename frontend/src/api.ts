@@ -174,6 +174,28 @@ export interface NtfyFeed {
   url?: string
 }
 
+export interface NoticeText {
+  title: string
+  body: string
+}
+
+export interface Notice {
+  kind: string
+  family: string
+  on: boolean
+  vars: string[]
+  enabled: boolean
+  urgent: boolean
+  texts: Record<string, Record<string, NoticeText>>
+  defaults: Record<string, NoticeText>
+}
+
+export interface Schedule {
+  expiryDays: number[]
+  trafficPercents: number[]
+  calendar: string
+}
+
 export const api = {
   login: (username: string, password: string) =>
     call<Me | { mfa: true; token: string }>('POST', '/login', { username, password }),
@@ -187,6 +209,13 @@ export const api = {
   totpDisable: (password: string) => call<void>('DELETE', '/me/2fa', { password }),
   status: () => call<Status>('GET', '/status'),
   summary: () => call<Summary>('GET', '/summary'),
+  notices: () => call<Notice[]>('GET', '/notices'),
+  saveNotice: (kind: string, b: { enabled: boolean; urgent: boolean; texts: Notice['texts'] }) =>
+    call<void>('PUT', '/notices/' + kind, b),
+  preview: (kind: string, lang: string, title: string, body: string) =>
+    call<NoticeText>('POST', '/notices/preview', { kind, lang, title, body }),
+  schedule: () => call<Schedule>('GET', '/settings/schedule'),
+  saveSchedule: (s: Schedule) => call<void>('PUT', '/settings/schedule', s),
   kinds: () => call<Kind[]>('GET', '/channel-kinds'),
   channels: () => call<Channel[]>('GET', '/channels'),
   createChannel: (b: ChannelBody) => call<Channel>('POST', '/channels', b),

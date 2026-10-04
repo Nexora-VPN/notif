@@ -14,9 +14,11 @@ sent only when the free channels could not deliver.
 > the delivery log); the Telegram, Bale, Soroush Plus and Rubika bots with
 > linking by subscription link or link code; SMS through Kavenegar and
 > Faraz SMS; email over SMTP; ntfy; and the generic HTTP channel with
-> presets (SMS.ru, SMSC, SMS Aero, MTS Exolve, VK, LINE, Matrix, Pushover).
-> The account's notices and the admin's own messages arrive in the next
-> versions.
+> presets (SMS.ru, SMSC, SMS Aero, MTS Exolve, VK, LINE, Matrix, Pushover);
+> the account's notices — the panel's events, an admin's edits, and the
+> admin's own schedule of expiry and traffic warnings — in the admin's own
+> words in four languages. The admin's own messages arrive in the next
+> version.
 
 A user links a bot by sending it their subscription link (or the link code
 the admin hands out); the chat id is written into the account's contact

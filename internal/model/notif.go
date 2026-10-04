@@ -12,12 +12,22 @@ type User struct {
 	Name    string                  `json:"name" gorm:"index;not null"`
 	Contact JSON[map[string]string] `json:"contact"`
 	Enable  bool                    `json:"enable" gorm:"not null"`
-	Expiry  int64                   `json:"expiry" gorm:"not null;default:0"`
-	Volume  int64                   `json:"volume" gorm:"not null;default:0"`
-	Used    int64                   `json:"used" gorm:"not null;default:0"`
-	Group   string                  `json:"group" gorm:"not null;default:''"`
-	AdminID uint                    `json:"adminId" gorm:"index;not null;default:0"`
-	SubURL  string                  `json:"subUrl" gorm:"not null;default:''"`
+	// DisabledReason is the panel's: "manual" for a person, or the
+	// enforcer's own (expiry, volume, resale-…).
+	DisabledReason string `json:"disabledReason" gorm:"not null;default:''"`
+	Expiry         int64  `json:"expiry" gorm:"not null;default:0"`
+	Volume         int64  `json:"volume" gorm:"not null;default:0"`
+	Used           int64  `json:"used" gorm:"not null;default:0"`
+	// TotalUsed is all the traffic ever used; TotalUsed - Used grows at each
+	// periodic reset, which is how a traffic warning re-arms for a new cycle.
+	TotalUsed int64 `json:"totalUsed" gorm:"not null;default:0"`
+	// Duration and ActivatedAt: a plan counted from the first connection
+	// has a provisional expiry until ActivatedAt is set.
+	Duration    int64  `json:"duration" gorm:"not null;default:0"`
+	ActivatedAt int64  `json:"activatedAt" gorm:"not null;default:0"`
+	Group       string `json:"group" gorm:"not null;default:''"`
+	AdminID     uint   `json:"adminId" gorm:"index;not null;default:0"`
+	SubURL      string `json:"subUrl" gorm:"not null;default:''"`
 	// SubIDHash and SubTokenHash are hashes of the subscription's id and
 	// token, so a user who sends a bot their subscription link is found
 	// without Notif keeping the link's secret part.
@@ -132,4 +142,22 @@ type Send struct {
 	Total       int                     `json:"total" gorm:"not null;default:0"`
 	CreatedAt   int64                   `json:"createdAt" gorm:"autoCreateTime"`
 	CancelledAt int64                   `json:"cancelledAt" gorm:"not null;default:0"`
+}
+
+// Text is one notice's words in one language.
+type Text struct {
+	Title string `json:"title"`
+	Body  string `json:"body"`
+}
+
+// Notice is the admin's setting for one kind of notice (internal/notices
+// lists the kinds): on or off, urgent or not, and their own words —
+// per language, and per channel kind where a channel needs other words
+// (an SMS shorter than a bot's message): Texts[lang][""] is the language's
+// text, Texts[lang]["kavenegar"] the override for that kind of channel.
+type Notice struct {
+	Kind    string                           `json:"kind" gorm:"primaryKey"`
+	Enabled bool                             `json:"enabled" gorm:"not null"`
+	Urgent  bool                             `json:"urgent" gorm:"not null;default:false"`
+	Texts   JSON[map[string]map[string]Text] `json:"texts"`
 }

@@ -34,6 +34,10 @@ type Sync struct {
 	// registered.
 	Panel func() Getter
 	Now   func() time.Time
+	// Changed hears an account the copy already had and a read found
+	// different — an edit nobody sent an event for (P36 (i)). It is not
+	// called for a read an event asked for: the event tells that change.
+	Changed func(old, new model.User)
 
 	lastEdit int64
 }
@@ -43,20 +47,25 @@ const pageSize = 1000
 
 // account is the panel's user object, the fields the copy keeps.
 type account struct {
-	ID        uint              `json:"id"`
-	Name      string            `json:"name"`
-	Contact   map[string]string `json:"contact"`
-	Enable    bool              `json:"enable"`
-	Expiry    int64             `json:"expiry"`
-	Volume    int64             `json:"volume"`
-	Up        int64             `json:"up"`
-	Down      int64             `json:"down"`
-	Group     string            `json:"group"`
-	AdminID   uint              `json:"adminId"`
-	SubURL    string            `json:"subUrl"`
-	SubID     string            `json:"subId"`
-	SubToken  string            `json:"subToken"`
-	UpdatedAt int64             `json:"updatedAt"`
+	ID             uint              `json:"id"`
+	Name           string            `json:"name"`
+	Contact        map[string]string `json:"contact"`
+	Enable         bool              `json:"enable"`
+	DisabledReason string            `json:"disabledReason"`
+	TotalUp        int64             `json:"totalUp"`
+	TotalDown      int64             `json:"totalDown"`
+	Duration       int64             `json:"duration"`
+	ActivatedAt    int64             `json:"activatedAt"`
+	Expiry         int64             `json:"expiry"`
+	Volume         int64             `json:"volume"`
+	Up             int64             `json:"up"`
+	Down           int64             `json:"down"`
+	Group          string            `json:"group"`
+	AdminID        uint              `json:"adminId"`
+	SubURL         string            `json:"subUrl"`
+	SubID          string            `json:"subId"`
+	SubToken       string            `json:"subToken"`
+	UpdatedAt      int64             `json:"updatedAt"`
 }
 
 // SubHash is what the copy keeps of a subscription id or token: enough to
@@ -76,9 +85,21 @@ func (s *Sync) now() time.Time {
 	return time.Now()
 }
 
-func (s *Sync) save(list []account, seen int64) error {
+func (s *Sync) save(list []account, seen int64, watch bool) error {
 	if len(list) == 0 {
 		return nil
+	}
+	old := map[uint]model.User{}
+	if watch && s.Changed != nil {
+		ids := make([]uint, 0, len(list))
+		for _, a := range list {
+			ids = append(ids, a.ID)
+		}
+		var rows []model.User
+		s.DB.Where("gone_at = 0").Find(&rows, ids)
+		for _, r := range rows {
+			old[r.ID] = r
+		}
 	}
 	rows := make([]model.User, 0, len(list))
 	for _, a := range list {
@@ -87,12 +108,21 @@ func (s *Sync) save(list []account, seen int64) error {
 		}
 		rows = append(rows, model.User{
 			ID: a.ID, Name: a.Name, Contact: model.JSON[map[string]string]{V: a.Contact}, Enable: a.Enable,
+			DisabledReason: a.DisabledReason, TotalUsed: a.TotalUp + a.TotalDown, Duration: a.Duration, ActivatedAt: a.ActivatedAt,
 			Expiry: a.Expiry, Volume: a.Volume, Used: a.Up + a.Down, Group: a.Group, AdminID: a.AdminID,
 			SubURL: a.SubURL, SubIDHash: SubHash(a.SubID), SubTokenHash: SubHash(a.SubToken),
 			UpdatedAt: a.UpdatedAt, SeenAt: seen,
 		})
 	}
-	return s.DB.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(rows, 200).Error
+	if err := s.DB.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(rows, 200).Error; err != nil {
+		return err
+	}
+	for _, r := range rows {
+		if o, ok := old[r.ID]; ok {
+			s.Changed(o, r)
+		}
+	}
+	return nil
 }
 
 // Full reads every account; one the panel no longer lists is marked gone.
@@ -110,7 +140,7 @@ func (s *Sync) Full(ctx context.Context) error {
 		if err := p.Get(ctx, fmt.Sprintf("/users?sort=id&limit=%d&offset=%d", pageSize, offset), &page); err != nil {
 			return err
 		}
-		if err := s.save(page.Items, start); err != nil {
+		if err := s.save(page.Items, start, true); err != nil {
 			return err
 		}
 		if len(page.Items) < pageSize {
@@ -136,7 +166,7 @@ func (s *Sync) Edits(ctx context.Context) error {
 		if err := p.Get(ctx, fmt.Sprintf("/users?sort=id&updated_since=%d&limit=%d&offset=%d", since, pageSize, offset), &page); err != nil {
 			return err
 		}
-		if err := s.save(page.Items, start); err != nil {
+		if err := s.save(page.Items, start, true); err != nil {
 			return err
 		}
 		if len(page.Items) < pageSize {
@@ -147,8 +177,17 @@ func (s *Sync) Edits(ctx context.Context) error {
 	return nil
 }
 
-// One reads one account now (an event named it); a 404 marks it gone.
-func (s *Sync) One(ctx context.Context, id uint) (model.User, error) {
+// One reads one account now (an event named it, which tells the change);
+// a 404 marks it gone.
+func (s *Sync) One(ctx context.Context, id uint) (model.User, error) { return s.read(ctx, id, false) }
+
+// Watched reads one account now and tells Changed what moved — for a bulk
+// operation, whose one event names the accounts but not what it did to each.
+func (s *Sync) Watched(ctx context.Context, id uint) (model.User, error) {
+	return s.read(ctx, id, true)
+}
+
+func (s *Sync) read(ctx context.Context, id uint, watch bool) (model.User, error) {
 	p := s.Panel()
 	if p == nil {
 		return model.User{}, fmt.Errorf("not registered with a panel")
@@ -160,7 +199,7 @@ func (s *Sync) One(ctx context.Context, id uint) (model.User, error) {
 		}
 		return model.User{}, err
 	}
-	if err := s.save([]account{a}, s.now().Unix()); err != nil {
+	if err := s.save([]account{a}, s.now().Unix(), watch); err != nil {
 		return model.User{}, err
 	}
 	var u model.User

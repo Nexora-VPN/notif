@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -219,4 +220,98 @@ func OffsetText(gdb *gorm.DB, channelID uint) string {
 // SetOffsetText records it.
 func SetOffsetText(gdb *gorm.DB, channelID uint, v string) error {
 	return save(gdb, fmt.Sprintf("bot_offset_text:%d", channelID), v)
+}
+
+// Schedule is the admin's own timing for the notices nobody's event
+// raises (GN-S4): how many days before the expiry, and at what share of
+// the traffic, a user hears. Each line is said once and re-arms itself: a
+// renewal moves the expiry, a top-up or a new cycle moves the traffic.
+type Schedule struct {
+	ExpiryDays      []int `json:"expiryDays"`
+	TrafficPercents []int `json:"trafficPercents"`
+	// Calendar is how dates are written: "auto" (the Persian calendar in
+	// Persian, the Gregorian elsewhere), "jalali" or "gregorian".
+	Calendar string `json:"calendar"`
+}
+
+const keySchedule = "schedule"
+
+func (s *Schedule) defaults(stored bool) {
+	if !stored {
+		s.ExpiryDays = []int{3, 1}
+		s.TrafficPercents = []int{80, 95}
+	}
+	if s.Calendar == "" {
+		s.Calendar = "auto"
+	}
+	s.ExpiryDays = tidy(s.ExpiryDays, true)
+	s.TrafficPercents = tidy(s.TrafficPercents, false)
+}
+
+// tidy sorts and drops repeats: days most distant first, percents lowest
+// first.
+func tidy(v []int, desc bool) []int {
+	out := []int{}
+	seen := map[int]bool{}
+	for _, n := range v {
+		if !seen[n] {
+			seen[n] = true
+			out = append(out, n)
+		}
+	}
+	slices.Sort(out)
+	if desc {
+		slices.Reverse(out)
+	}
+	return out
+}
+
+// Check refuses a schedule that cannot work.
+func (s Schedule) Check() error {
+	if len(s.ExpiryDays) > 10 || len(s.TrafficPercents) > 10 {
+		return errors.New("ten lines at most of each")
+	}
+	for _, d := range s.ExpiryDays {
+		if d < 1 || d > 365 {
+			return fmt.Errorf("%d is not 1 to 365 days", d)
+		}
+	}
+	for _, p := range s.TrafficPercents {
+		if p < 1 || p > 99 {
+			return fmt.Errorf("%d is not 1 to 99 percent", p)
+		}
+	}
+	switch s.Calendar {
+	case "auto", "jalali", "gregorian":
+	default:
+		return errors.New("calendar is auto, jalali or gregorian")
+	}
+	return nil
+}
+
+// LoadSchedule reads the schedule with its defaults.
+func LoadSchedule(gdb *gorm.DB) Schedule {
+	var row model.Setting
+	var s Schedule
+	stored := gdb.Where("key = ?", keySchedule).Limit(1).Find(&row).Error == nil && row.Value != ""
+	if stored {
+		_ = json.Unmarshal([]byte(row.Value), &s)
+	}
+	s.defaults(stored)
+	return s
+}
+
+// SaveSchedule checks and writes it; an empty list switches that family off.
+func SaveSchedule(gdb *gorm.DB, s Schedule) error {
+	if s.ExpiryDays == nil {
+		s.ExpiryDays = []int{}
+	}
+	if s.TrafficPercents == nil {
+		s.TrafficPercents = []int{}
+	}
+	s.defaults(true)
+	if err := s.Check(); err != nil {
+		return err
+	}
+	return save(gdb, keySchedule, s)
 }

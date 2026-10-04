@@ -78,7 +78,10 @@ func (o *Outbox) Enqueue(d model.Delivery) (bool, error) {
 	}
 	d.ID = 0
 	d.Status = model.DeliveryQueued
-	d.NextAt = o.Now().Unix()
+	// A delivery may ask to wait (an edit's notice, in case the event that
+	// tells the same change is on its way); otherwise it is due now.
+	d.NextAt = max(d.NextAt, o.Now().Unix())
+	d.CreatedAt = o.Now().Unix()
 	res := o.DB.Where(model.Delivery{Key: d.Key}).Attrs(d).FirstOrCreate(&d)
 	if res.Error != nil {
 		return false, res.Error
@@ -208,7 +211,8 @@ func (o *Outbox) process(ctx context.Context, id uint) {
 		}
 	}
 	var u model.User
-	if o.DB.First(&u, d.UserID).Error != nil || u.GoneAt > 0 {
+	// A deleted account still hears that it was deleted, from the copy.
+	if o.DB.First(&u, d.UserID).Error != nil || u.GoneAt > 0 && d.Kind != "deleted" {
 		o.set(&d, map[string]any{"status": model.DeliveryFailed, "error": "the account is no longer on the panel"})
 		return
 	}
@@ -235,6 +239,7 @@ func (o *Outbox) process(ctx context.Context, id uint) {
 		}
 	}
 	lang := notices.Language(u, cfg.Language)
+	book := notices.Load(o.DB)
 	to := channel.Recipient{UserID: u.ID, Name: u.Name, Contact: u.Contact.V, Lang: lang}
 	for _, ch := range order {
 		if done[ch.ID] {
@@ -251,7 +256,7 @@ func (o *Outbox) process(ctx context.Context, id uint) {
 		}
 		a := o.attempt(d, ch, model.AttemptStarted, "")
 		sctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		err = sender.Send(sctx, to, notices.Render(d, u, ch, lang))
+		err = sender.Send(sctx, to, book.Render(d, u, ch, lang))
 		cancel()
 		var refused *channel.Refused
 		var retry *channel.Retry

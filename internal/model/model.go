@@ -44,7 +44,7 @@ type Panel struct {
 func All() []any {
 	return []any{
 		&Admin{}, &Session{}, &Panel{}, &Setting{},
-		&User{}, &Channel{}, &Delivery{}, &Attempt{}, &Send{},
+		&User{}, &Channel{}, &Delivery{}, &Attempt{}, &Send{}, &Notice{},
 	}
 }
 
