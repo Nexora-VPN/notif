@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
-import { api, type Status, type Summary } from '../api'
+import { api, type Setup, type Status, type Summary } from '../api'
 
 const { t, locale } = useI18n()
 
@@ -12,11 +12,16 @@ function when(unix: number) {
 }
 const status = ref<Status>()
 const sum = ref<Summary>()
+const setup = ref<Setup>()
 const error = ref('')
 
 onMounted(async () => {
   try {
-    ;[status.value, sum.value] = await Promise.all([api.status(), api.summary()])
+    ;[status.value, sum.value, setup.value] = await Promise.all([
+      api.status(),
+      api.summary(),
+      api.setup(),
+    ])
   } catch (e) {
     error.value = (e as Error).message
   }
@@ -27,6 +32,14 @@ onMounted(async () => {
   <section class="stack">
     <h2>{{ t('dashboard.title') }}</h2>
     <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
+    <Message v-if="setup && !setup.done" severity="info" :closable="false">
+      {{
+        t('setup.left', {
+          n: setup.steps.filter((s) => !s.done && !s.optional).length.toLocaleString(locale),
+        })
+      }}
+      <RouterLink :to="{ name: 'setup' }">{{ t('nav.setup') }}</RouterLink>
+    </Message>
     <template v-if="sum">
       <Message v-if="!sum.channels" severity="warn" :closable="false">
         {{ t('dashboard.noChannels') }}

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -358,4 +359,93 @@ func SetForgottenThrough(gdb *gorm.DB, id uint) error {
 func ForgottenThrough(gdb *gorm.DB) (uint, error) {
 	var id uint
 	return id, load(gdb, keyForgotten, &id)
+}
+
+const (
+	keyAddress  = "address"
+	keyInstance = "instance"
+)
+
+// Address is where the admins open Notif — scheme, host and port; the base
+// path goes after it — and the install's answer it last took.
+type Address struct {
+	PublicURL   string `json:"publicUrl"`
+	FromInstall string `json:"fromInstall"`
+}
+
+// CheckPublicURL tidies an address the admins open Notif at: an absolute
+// http(s) URL naming no path, query or fragment ("" for none).
+func CheckPublicURL(raw string) (string, error) {
+	v := strings.TrimRight(strings.TrimSpace(raw), "/")
+	if v == "" {
+		return "", nil
+	}
+	u, err := url.Parse(v)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.User != nil {
+		return "", errors.New("the address must be http:// or https:// and a host, such as https://notif.example.com")
+	}
+	if u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return "", errors.New("the address is the scheme, host and port only; the base path is added to it")
+	}
+	return v, nil
+}
+
+// LoadAddress reads the address.
+func LoadAddress(gdb *gorm.DB) (Address, error) {
+	var a Address
+	err := load(gdb, keyAddress, &a)
+	return a, err
+}
+
+// SaveAddress sets the address the admins open Notif at.
+func SaveAddress(gdb *gorm.DB, publicURL string) error {
+	v, err := CheckPublicURL(publicURL)
+	if err != nil {
+		return err
+	}
+	a, err := LoadAddress(gdb)
+	if err != nil {
+		return err
+	}
+	a.PublicURL = v
+	return save(gdb, keyAddress, a)
+}
+
+// ApplyInstallAddress carries the install's `public_url` into the address
+// when it is new or changed since the last start: a re-install with a new
+// answer wins, and an edit on the Set-up page stands until the answer
+// changes again.
+func ApplyInstallAddress(gdb *gorm.DB, answer string) (bool, error) {
+	v, err := CheckPublicURL(answer)
+	if err != nil || v == "" {
+		return false, err
+	}
+	a, err := LoadAddress(gdb)
+	if err != nil || a.FromInstall == v {
+		return false, err
+	}
+	a.PublicURL, a.FromInstall = v, v
+	return true, save(gdb, keyAddress, a)
+}
+
+// Instance is this Notif's own random name, which the address check looks
+// for: an address answering with another name reaches another program.
+func Instance(gdb *gorm.DB) (string, error) {
+	var id string
+	if err := load(gdb, keyInstance, &id); err != nil {
+		return "", err
+	}
+	if id != "" {
+		return id, nil
+	}
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	raw, _ := json.Marshal(hex.EncodeToString(b))
+	if err := gdb.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.Setting{Key: keyInstance, Value: string(raw)}).Error; err != nil {
+		return "", err
+	}
+	err := load(gdb, keyInstance, &id)
+	return id, err
 }

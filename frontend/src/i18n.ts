@@ -8,6 +8,7 @@ const en = {
   nav: {
     dashboard: 'Dashboard',
     security: 'Security',
+    setup: 'Set-up',
     signOut: 'Sign out',
     language: 'Language',
     channels: 'Channels',
@@ -448,6 +449,50 @@ const en = {
     planNote: 'Where each goes is a forecast: a user who blocked a bot falls to the next channel.',
     sent: 'Sent messages',
   },
+  setup: {
+    title: 'Set-up',
+    intro: 'What Notif needs before you rely on it, step by step.',
+    ready: 'Notif is set up.',
+    left: '{n} step(s) left.',
+    done: 'Done',
+    optional: 'Optional',
+    check: 'Save and check',
+    steps: {
+      address: 'Address and certificate',
+      password: 'A password of your own',
+      twofactor: 'Two-step sign-in',
+      channel: 'The first channel',
+      panel: 'Connected to the panel',
+      backups: 'Backups',
+    },
+    addressHint:
+      'Where you open Notif: scheme, host and port only, such as https://notif.example.com or https://203.0.113.9:8443. Notif asks it from outside whether it reaches this very Notif.',
+    reachable: 'The address reaches this Notif.',
+    unreachable: 'The address does not reach this Notif yet:',
+    adminAt: 'The admin web is at',
+    keepPath:
+      'Keep the path to yourself: Notif answers nothing outside it, so a scanner finds nothing.',
+    https: {
+      off: 'HTTPS is off: the password crosses the network in the clear unless a proxy of yours adds TLS. Reinstall with https acme (a domain) or self-signed (an address by IP).',
+      acme: 'Notif gets the certificate for this domain itself, on port 443 of this server, and renews it; the domain must point here.',
+      'self-signed':
+        'Notif serves this address with a certificate of its own: the browser warns once, and the traffic is encrypted. Compare the fingerprint with the one the browser shows.',
+    },
+    fingerprint: 'SHA-256 fingerprint',
+    passwordTodo:
+      'You still sign in with the password the install was given, which stays in its .env file in the clear. Choose one of your own under Security.',
+    passwordDone: 'Your password is not the install’s.',
+    twofactorHint: 'A code from an authenticator app at every sign-in, under Security.',
+    channelTodo:
+      'No channel is on: nobody hears anything until one is. Add a bot, SMS, email or ntfy.',
+    channelsOn: '{n} channel(s) on.',
+    panelTodo:
+      'On the panel: Services → Addons → Add, with this address and the claim code. An addon installed from the panel’s directory registers by itself.',
+    panelDone: 'Registered with',
+    backupsTodo: 'No daily copy yet: Notif takes one of its database each day and keeps seven.',
+    backupsDone: 'The latest daily copy: {when}. Notif keeps seven, in data/backups.',
+    backupsPostgres: 'On PostgreSQL Notif takes no copy itself: back the database up with pg_dump.',
+  },
   errors: {
     bad_request: 'The request could not be read. Reload the page and try again.',
     not_found: 'It is not there any more. Reload the page.',
@@ -495,6 +540,7 @@ const fa: Messages = {
   nav: {
     dashboard: 'داشبورد',
     security: 'امنیت',
+    setup: 'راه‌اندازی',
     signOut: 'خروج',
     language: 'زبان',
     channels: 'پیام‌رسان‌ها',
@@ -935,6 +981,52 @@ const fa: Messages = {
     planNote: 'مسیر هر پیام پیش‌بینی است: کاربری که رباتی را بلاک کرده به پیام‌رسان بعدی می‌رود.',
     sent: 'پیام‌های فرستاده‌شده',
   },
+  setup: {
+    title: 'راه‌اندازی',
+    intro: 'آنچه نوتیف پیش از اینکه به آن تکیه کنید لازم دارد، قدم‌به‌قدم.',
+    ready: 'نوتیف راه‌اندازی شده است.',
+    left: '{n} قدم مانده.',
+    done: 'انجام شد',
+    optional: 'اختیاری',
+    check: 'ذخیره و بررسی',
+    steps: {
+      address: 'آدرس و گواهی',
+      password: 'رمزی از خودتان',
+      twofactor: 'ورود دومرحله‌ای',
+      channel: 'اولین پیام‌رسان',
+      panel: 'وصل به پنل',
+      backups: 'پشتیبان‌ها',
+    },
+    addressHint:
+      'آدرسی که نوتیف را با آن باز می‌کنید: فقط پروتکل، میزبان و پورت، مثل https://notif.example.com یا https://203.0.113.9:8443. نوتیف از بیرون می‌پرسد که این آدرس به همین نوتیف می‌رسد یا نه.',
+    reachable: 'آدرس به همین نوتیف می‌رسد.',
+    unreachable: 'آدرس هنوز به این نوتیف نمی‌رسد:',
+    adminAt: 'ادمین وب اینجاست:',
+    keepPath:
+      'این مسیر را پیش خودتان نگه دارید: نوتیف بیرون از آن جوابی نمی‌دهد، پس اسکنر چیزی پیدا نمی‌کند.',
+    https: {
+      off: 'HTTPS خاموش است: رمز بی‌رمزنگاری از شبکه می‌گذرد، مگر پراکسی خودتان TLS بگذارد. با https روی acme (دامنه) یا self-signed (آدرس با IP) دوباره نصب کنید.',
+      acme: 'نوتیف گواهی این دامنه را خودش روی پورت ۴۴۳ همین سرور می‌گیرد و تمدید می‌کند؛ دامنه باید به اینجا اشاره کند.',
+      'self-signed':
+        'نوتیف این آدرس را با گواهی خودش سرویس می‌دهد: مرورگر یک بار هشدار می‌دهد و ارتباط رمز می‌شود. اثر انگشت را با آنچه مرورگر نشان می‌دهد مقایسه کنید.',
+    },
+    fingerprint: 'اثر انگشت SHA-256',
+    passwordTodo:
+      'هنوز با رمزی وارد می‌شوید که به نصب داده شد و بی‌رمزنگاری در فایل ‎.env‎ آن می‌ماند. در «امنیت» رمزی از خودتان بگذارید.',
+    passwordDone: 'رمز شما همان رمز نصب نیست.',
+    twofactorHint: 'کدی از اپ احراز هویت در هر ورود، در «امنیت».',
+    channelTodo:
+      'هیچ پیام‌رسانی روشن نیست: تا یکی روشن نشود کسی چیزی نمی‌شنود. ربات، پیامک، ایمیل یا ntfy اضافه کنید.',
+    channelsOn: '{n} پیام‌رسان روشن است.',
+    panelTodo:
+      'در پنل: سرویس‌ها ← افزونه‌ها ← افزودن، با همین آدرس و کد ادعا. افزونه‌ای که از فهرست پنل نصب شده خودش ثبت می‌شود.',
+    panelDone: 'ثبت‌شده در',
+    backupsTodo:
+      'هنوز نسخهٔ روزانه‌ای گرفته نشده: نوتیف هر روز یک نسخه از دیتابیسش می‌گیرد و هفت تا را نگه می‌دارد.',
+    backupsDone: 'آخرین نسخهٔ روزانه: {when}. نوتیف هفت نسخه را در data/backups نگه می‌دارد.',
+    backupsPostgres:
+      'روی PostgreSQL نوتیف خودش نسخه نمی‌گیرد: با pg_dump از دیتابیس پشتیبان بگیرید.',
+  },
   errors: {
     bad_request: 'درخواست خوانده نشد. صفحه را تازه کنید و دوباره امتحان کنید.',
     not_found: 'دیگر وجود ندارد. صفحه را تازه کنید.',
@@ -979,6 +1071,7 @@ const ru: Messages = {
   nav: {
     dashboard: 'Обзор',
     security: 'Безопасность',
+    setup: 'Настройка',
     signOut: 'Выйти',
     language: 'Язык',
     channels: 'Каналы',
@@ -1421,6 +1514,51 @@ const ru: Messages = {
       'Маршрут — прогноз: пользователь, заблокировавший бота, получит через следующий канал.',
     sent: 'Отправленные сообщения',
   },
+  setup: {
+    title: 'Настройка',
+    intro: 'Что нужно Notif, прежде чем на него полагаться, по шагам.',
+    ready: 'Notif настроен.',
+    left: 'Осталось шагов: {n}.',
+    done: 'Готово',
+    optional: 'Необязательно',
+    check: 'Сохранить и проверить',
+    steps: {
+      address: 'Адрес и сертификат',
+      password: 'Собственный пароль',
+      twofactor: 'Двухэтапный вход',
+      channel: 'Первый канал',
+      panel: 'Подключение к панели',
+      backups: 'Резервные копии',
+    },
+    addressHint:
+      'Адрес, по которому вы открываете Notif: только схема, хост и порт, например https://notif.example.com или https://203.0.113.9:8443. Notif проверяет снаружи, ведёт ли он к этому самому Notif.',
+    reachable: 'Адрес ведёт к этому Notif.',
+    unreachable: 'Адрес пока не ведёт к этому Notif:',
+    adminAt: 'Админка находится по адресу',
+    keepPath: 'Держите путь при себе: вне его Notif ничего не отвечает, и сканер ничего не найдёт.',
+    https: {
+      off: 'HTTPS выключен: пароль идёт по сети открытым текстом, если ваш прокси не добавляет TLS. Переустановите с https acme (домен) или self-signed (адрес по IP).',
+      acme: 'Notif сам получает и продлевает сертификат для этого домена на порту 443 этого сервера; домен должен указывать сюда.',
+      'self-signed':
+        'Notif обслуживает этот адрес собственным сертификатом: браузер один раз предупредит, трафик шифруется. Сравните отпечаток с тем, что показывает браузер.',
+    },
+    fingerprint: 'Отпечаток SHA-256',
+    passwordTodo:
+      'Вы всё ещё входите с паролем, заданным при установке, который лежит в её файле .env открытым текстом. Задайте свой в разделе «Безопасность».',
+    passwordDone: 'Ваш пароль — не пароль установки.',
+    twofactorHint: 'Код из приложения-аутентификатора при каждом входе, в разделе «Безопасность».',
+    channelTodo:
+      'Ни один канал не включён: никто ничего не услышит, пока не включите. Добавьте бота, SMS, почту или ntfy.',
+    channelsOn: 'Включено каналов: {n}.',
+    panelTodo:
+      'В панели: Сервисы → Расширения → Добавить, с этим адресом и кодом привязки. Расширение, установленное из каталога панели, регистрируется само.',
+    panelDone: 'Зарегистрирован в',
+    backupsTodo:
+      'Ежедневной копии ещё нет: Notif каждый день копирует свою базу и хранит семь копий.',
+    backupsDone: 'Последняя ежедневная копия: {when}. Notif хранит семь в data/backups.',
+    backupsPostgres:
+      'На PostgreSQL Notif сам копий не делает: делайте резервную копию базы через pg_dump.',
+  },
   errors: {
     bad_request: 'Запрос не удалось прочитать. Обновите страницу и попробуйте снова.',
     not_found: 'Этого больше нет. Обновите страницу.',
@@ -1466,6 +1604,7 @@ const zh: Messages = {
   nav: {
     dashboard: '概览',
     security: '安全',
+    setup: '设置',
     signOut: '退出',
     language: '语言',
     channels: '渠道',
@@ -1898,6 +2037,48 @@ const zh: Messages = {
     unreachable: '无渠道',
     planNote: '每条消息的渠道为预测：屏蔽了机器人的用户会改走下一个渠道。',
     sent: '已发送的消息',
+  },
+  setup: {
+    title: '设置',
+    intro: '在依赖 Notif 之前它需要的内容，逐步完成。',
+    ready: 'Notif 已设置完成。',
+    left: '还剩 {n} 步。',
+    done: '已完成',
+    optional: '可选',
+    check: '保存并检查',
+    steps: {
+      address: '地址和证书',
+      password: '您自己的密码',
+      twofactor: '两步登录',
+      channel: '第一个渠道',
+      panel: '已连接面板',
+      backups: '备份',
+    },
+    addressHint:
+      '您打开 Notif 的地址：只含协议、主机和端口，例如 https://notif.example.com 或 https://203.0.113.9:8443。Notif 会从外部检查它是否能访问到本 Notif。',
+    reachable: '该地址能访问到本 Notif。',
+    unreachable: '该地址还访问不到本 Notif：',
+    adminAt: '管理后台地址：',
+    keepPath: '请勿外传此路径：Notif 在路径之外不作任何应答，扫描器什么也找不到。',
+    https: {
+      off: 'HTTPS 已关闭：除非您的代理加上 TLS，否则密码以明文在网络中传输。请用 https 的 acme（域名）或 self-signed（IP 地址）重新安装。',
+      acme: 'Notif 在本服务器的 443 端口自行获取并续期该域名的证书；域名必须指向这里。',
+      'self-signed':
+        'Notif 用自己的证书为该地址提供服务：浏览器会提示一次警告，通信是加密的。请将指纹与浏览器显示的指纹比对。',
+    },
+    fingerprint: 'SHA-256 指纹',
+    passwordTodo:
+      '您仍在使用安装时设置的密码，它以明文保存在安装的 .env 文件中。请在“安全”中设置您自己的密码。',
+    passwordDone: '您的密码不是安装时的密码。',
+    twofactorHint: '每次登录时输入身份验证器应用的代码，在“安全”中设置。',
+    channelTodo:
+      '没有开启任何渠道：开启之前没有人会收到任何通知。请添加机器人、短信、邮件或 ntfy。',
+    channelsOn: '已开启 {n} 个渠道。',
+    panelTodo: '在面板中：服务 → 扩展 → 添加，填写此地址和认领码。从面板目录安装的扩展会自行注册。',
+    panelDone: '已注册到',
+    backupsTodo: '还没有每日副本：Notif 每天复制一次数据库并保留七份。',
+    backupsDone: '最新的每日副本：{when}。Notif 在 data/backups 中保留七份。',
+    backupsPostgres: '使用 PostgreSQL 时 Notif 不自行复制：请用 pg_dump 备份数据库。',
   },
   errors: {
     bad_request: '无法读取请求。请刷新页面后重试。',

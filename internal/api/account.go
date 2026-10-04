@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nexora-vpn/addon-kit/auth"
+	"github.com/nexora-vpn/addon-kit/web"
 	"github.com/nexora-vpn/notif/internal/admins"
 	"github.com/nexora-vpn/notif/internal/model"
 )
@@ -163,7 +164,7 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request, a model.Ad
 		log.Printf("admins: the last sign-in of %d: %v", a.ID, err)
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name: sessionCookie, Value: tok, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode,
+		Name: sessionCookie, Value: tok, Path: web.CookiePath(s.cfg.BasePath), HttpOnly: true, SameSite: http.SameSiteStrictMode,
 		Secure: secure(r), MaxAge: int(admins.SessionTTL.Seconds()),
 	})
 	writeJSON(w, http.StatusOK, viewOf(a))
@@ -176,7 +177,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: secure(r)})
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: web.CookiePath(s.cfg.BasePath), MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: secure(r)})
 	w.WriteHeader(http.StatusNoContent)
 }
 

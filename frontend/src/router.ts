@@ -10,6 +10,7 @@ import Settings from './views/Settings.vue'
 import Users from './views/Users.vue'
 import Notices from './views/Notices.vue'
 import Messages from './views/Messages.vue'
+import Setup from './views/Setup.vue'
 
 export const router = createRouter({
   // Relative to wherever Notif is served, the way its assets are.
@@ -28,6 +29,7 @@ export const router = createRouter({
         { path: 'log', name: 'log', component: Log },
         { path: 'settings', name: 'settings', component: Settings },
         { path: 'security', name: 'security', component: Security },
+        { path: 'setup', name: 'setup', component: Setup },
       ],
     },
   ],

@@ -14,6 +14,8 @@
 // Configuration comes from the environment, the way the install passes it
 // (internal/config): NEXORA_OPT_PORT, NEXORA_OPT_DATABASE (sqlite|postgres),
 // NEXORA_OPT_DATABASE_DSN, NEXORA_OPT_ADMIN_USERNAME, NEXORA_OPT_ADMIN_PASSWORD,
+// NEXORA_OPT_BASE_PATH (everything is served under it),
+// NEXORA_OPT_PUBLIC_URL and NEXORA_OPT_HTTPS (off, acme, self-signed),
 // NEXORA_CLAIM_CODE, NEXORA_DATA_DIR, NEXORA_MANIFEST_FILE.
 package main
 
@@ -145,8 +147,17 @@ func run() error {
 			log.Printf("stopping: the background work did not end within %s", shutdownWait)
 		}
 	}
+	go func() {
+		if err := app.ServeHTTPS(bg); err != nil {
+			log.Printf("https: %v", err)
+		}
+	}()
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: app.Handler(), ReadHeaderTimeout: 10 * time.Second}
-	log.Printf("nexora notif %s on :%s (%s)", a.Manifest().Version, cfg.Port, cfg.Driver)
+	where := "at the root"
+	if cfg.BasePath != "" {
+		where = "under " + cfg.BasePath + "/"
+	}
+	log.Printf("nexora notif %s on :%s (%s), %s", a.Manifest().Version, cfg.Port, cfg.Driver, where)
 	errs := make(chan error, 1)
 	go func() { errs <- srv.ListenAndServe() }()
 	stop := make(chan os.Signal, 1)

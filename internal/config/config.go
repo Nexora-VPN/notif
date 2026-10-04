@@ -5,11 +5,14 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/nexora-vpn/addon-kit/addon"
+	"github.com/nexora-vpn/addon-kit/web"
 )
 
 // The database drivers the manifest's "database" option offers.
@@ -22,6 +25,24 @@ const (
 type Config struct {
 	Port    string
 	DataDir string
+	// BasePath is the path everything is served under — the admin web, its
+	// API, the panel's calls ("/k3x9…", or "" for the root): the install's
+	// `base_path`. Notif has no page for anyone but its admins, so nothing
+	// answers outside it.
+	BasePath string
+	// PublicURL is the address the admins open Notif at (scheme, host,
+	// port; the base path is added to it): the install's `public_url`,
+	// carried into the settings when it changes (internal/api, setup.go).
+	PublicURL string
+	// HTTPS is how Notif serves that address itself (web.HTTPSModes): off,
+	// acme — a certificate from an ACME CA for its domain — or self-signed,
+	// for an address by IP. It listens on HTTPSListen (":443"; the image
+	// listens on ":8443" and compose publishes the address's port to it).
+	// ACMEDirectory and ACMEInsecure point a walk at a test CA.
+	HTTPS         string
+	HTTPSListen   string
+	ACMEDirectory string
+	ACMEInsecure  bool
 	// Driver is sqlite or postgres. For SQLite, DSN is the file in DataDir;
 	// for PostgreSQL it is the install's connection string.
 	Driver string
@@ -44,6 +65,12 @@ type Config struct {
 func Load() (Config, error) {
 	c := Config{
 		Port:          option("port", "8097"),
+		BasePath:      addon.Option("base_path"),
+		PublicURL:     strings.TrimRight(strings.TrimSpace(addon.Option("public_url")), "/"),
+		HTTPS:         strings.ToLower(option("https", web.HTTPSOff)),
+		HTTPSListen:   env("NEXORA_HTTPS_LISTEN", ":443"),
+		ACMEDirectory: os.Getenv("NEXORA_ACME_DIRECTORY"),
+		ACMEInsecure:  os.Getenv("NEXORA_ACME_INSECURE") == "1",
 		DataDir:       env("NEXORA_DATA_DIR", "data"),
 		Driver:        strings.ToLower(option("database", DriverSQLite)),
 		DSN:           strings.TrimSpace(addon.Option("database_dsn")),
@@ -52,6 +79,14 @@ func Load() (Config, error) {
 		ManifestFile:  os.Getenv("NEXORA_MANIFEST_FILE"),
 		LocalProxies:  strings.TrimSpace(addon.Option("local_proxies")),
 	}
+	if !slices.Contains(web.HTTPSModes, c.HTTPS) {
+		return c, fmt.Errorf("https must be one of %s", strings.Join(web.HTTPSModes, ", "))
+	}
+	base, err := web.BasePath(c.BasePath)
+	if err != nil {
+		return c, fmt.Errorf("base_path: %w", err)
+	}
+	c.BasePath = base
 	switch c.Driver {
 	case DriverSQLite:
 		c.DSN = filepath.Join(c.DataDir, "notif.db")

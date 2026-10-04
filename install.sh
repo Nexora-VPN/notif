@@ -3,7 +3,7 @@
 # by the panel over SSH (the same way it installs a node). Run it as root.
 #
 #   sh install.sh --method docker --opt port=8097 --panel-url https://panel.example --claim-code ABC123
-#   sh install.sh --method script --version v0.1.0
+#   sh install.sh --method script --version v0.1.0 --opt base_path=k3x9q2
 #   sh install.sh --uninstall [--purge]
 #
 # --method script   the binary under a systemd unit (no Docker needed)
@@ -12,7 +12,9 @@
 # --binary-file F   install this archive instead of downloading one (script)
 # --sha256 HEX      the archive's SHA-256, checked before it is installed: the
 #                   panel hands it from the release's signed SHA256SUMS
-# --opt KEY=VALUE   an answer to one of the manifest's install options; repeat
+# --opt KEY=VALUE   an answer to one of the manifest's install options; repeat.
+#                   A first install with no base_path draws one;
+#                   base_path= puts Notif at the root.
 # --panel-url URL   the panel's address, passed as NEXORA_PANEL_URL
 # --claim-code C    the one-time code the panel registers the addon with
 # --uninstall       stop and remove the addon; --purge also deletes its data
@@ -95,6 +97,10 @@ if [ -z "$VERSION" ]; then
 	[ -n "$VERSION" ] || die "could not read the latest release of ${REPO}"
 fi
 
+# A first install, not an update: no answers written yet.
+FRESH=1
+[ ! -f "${DIR}/.env" ] || FRESH=0
+
 mkdir -p "${DIR}/data"
 chmod 700 "${DIR}"
 echo "$METHOD" >"${DIR}/.method"
@@ -134,6 +140,38 @@ done
 [ -z "$PANEL_URL" ] || setenv NEXORA_PANEL_URL "$PANEL_URL"
 [ -z "$CLAIM_CODE" ] || setenv NEXORA_CLAIM_CODE "$CLAIM_CODE"
 setenv NEXORA_ADDON_VERSION "${VERSION#v}"
+
+# getenv KEY: a value of the .env, its quotes taken off (setenv's quoting
+# of a value with no quote in it).
+getenv() {
+	sed -n "s/^$1=//p" "${DIR}/.env" 2>/dev/null | tail -n 1 | sed -e "s/^'\(.*\)'\$/\1/" -e 's/^"\(.*\)"$/\1/'
+}
+
+# The base path everything is served under: a first install the command
+# gives none draws one, so Notif is not where a scanner looks; an update
+# keeps what the install has — none, for one from before base paths, is
+# the root.
+if [ "$FRESH" = 1 ] && ! grep -q '^NEXORA_OPT_BASE_PATH=' "${DIR}/.env"; then
+	setenv NEXORA_OPT_BASE_PATH "$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 12)"
+fi
+
+# Notif's own HTTPS answers on the public address's port: 443 for acme,
+# whatever the CA's check needs, and for self-signed the port the address
+# names (443 when it names none). Compose publishes it only then.
+HTTPS_MODE="$(getenv NEXORA_OPT_HTTPS)"
+HTTPS_PORT=443
+if [ "$HTTPS_MODE" = self-signed ]; then
+	p="$(getenv NEXORA_OPT_PUBLIC_URL | sed -n 's#^https://[^/]*:\([0-9][0-9]*\)/\{0,1\}$#\1#p')"
+	[ -z "$p" ] || HTTPS_PORT="$p"
+	[ "$HTTPS_PORT" != "$(getenv NEXORA_OPT_PORT)" ] || die "the public address's port ${HTTPS_PORT} is Notif's own port; give the public address another"
+fi
+case "$HTTPS_MODE" in
+acme | self-signed)
+	setenv NEXORA_HTTPS_PUBLISH "${HTTPS_PORT}:8443"
+	[ "$METHOD" != script ] || setenv NEXORA_HTTPS_LISTEN ":${HTTPS_PORT}"
+	;;
+*) setenv NEXORA_HTTPS_PUBLISH "127.0.0.1::8443" ;;
+esac
 
 case "$METHOD" in
 script)
@@ -226,3 +264,6 @@ docker)
 esac
 
 echo "installed ${SLUG} ${VERSION} (${METHOD}) in ${DIR}"
+BASE="$(getenv NEXORA_OPT_BASE_PATH | tr -d /)"
+PORT="$(getenv NEXORA_OPT_PORT)"
+echo "the admin: http://<this host>:${PORT:-8097}/${BASE}${BASE:+/ — keep the path to yourself}"

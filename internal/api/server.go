@@ -20,6 +20,7 @@ import (
 	"github.com/nexora-vpn/addon-kit/addon"
 	"github.com/nexora-vpn/addon-kit/auth"
 	"github.com/nexora-vpn/addon-kit/panel"
+	"github.com/nexora-vpn/addon-kit/web"
 	"github.com/nexora-vpn/notif/internal/admins"
 	"github.com/nexora-vpn/notif/internal/bots"
 	"github.com/nexora-vpn/notif/internal/channel"
@@ -58,6 +59,9 @@ type Server struct {
 	mu      sync.Mutex
 	pending map[string]pendingLogin // sign-in token → the admin waiting for a code
 	enrol   map[uint]string         // admin → the TOTP secret being enrolled
+
+	// tls serves the public address over HTTPS; nil with https off.
+	tls *web.TLS
 }
 
 // pendingLogin is a right password waiting for its code.
@@ -108,6 +112,23 @@ func New(gdb *gorm.DB, a *addon.Addon, cfg config.Config, version string, spa fs
 		}()
 	}
 	s.outbox.SubURL = s.subURL
+	if changed, err := settings.ApplyInstallAddress(gdb, cfg.PublicURL); err != nil {
+		log.Printf("setup: the install's public_url: %v", err)
+	} else if changed {
+		log.Printf("setup: the public address is %s, from the install", cfg.PublicURL)
+	}
+	if cfg.HTTPS != web.HTTPSOff {
+		s.tls = &web.TLS{
+			Mode: cfg.HTTPS,
+			// Read on every handshake: an address changed on the Set-up
+			// page gets its certificate without a restart.
+			Host: func() string {
+				a, _ := settings.LoadAddress(gdb)
+				return web.HostOf(a.PublicURL)
+			},
+			Dir: cfg.DataDir, ACMEDirectory: cfg.ACMEDirectory, ACMEInsecure: cfg.ACMEInsecure,
+		}
+	}
 	a.OnSetup(s.registered)
 	a.OnEventErr(s.event)
 	return s, nil
@@ -239,13 +260,31 @@ func (s *Server) Handler() http.Handler {
 	s.mountUsers(mux)
 	s.mountNotices(mux)
 	s.mountSends(mux)
+	s.mountSetup(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeCode(w, http.StatusNotFound, "not_found", "no such API route")
 	})
 	if s.spa != nil {
 		mux.Handle("/", spaHandler(s.spa))
 	}
-	return securityHeaders(mux)
+	// Everything under the base path: Notif has no page for anyone but its
+	// admins, so the root answers like a path nothing serves.
+	return securityHeaders(web.Mount(s.cfg.BasePath, mux))
+}
+
+// ServeHTTPS serves every route over HTTPS on the configured listener,
+// with the certificate the install asked for, until ctx ends. With https
+// off it does nothing.
+func (s *Server) ServeHTTPS(ctx context.Context) error {
+	if s.tls == nil {
+		return nil
+	}
+	if s.tls.Mode == web.HTTPSSelfSigned {
+		if fp := s.tls.Fingerprint(); fp != "" {
+			log.Printf("https: the self-signed certificate's SHA-256 fingerprint is %s", fp)
+		}
+	}
+	return s.tls.Serve(ctx, s.cfg.HTTPSListen, s.Handler())
 }
 
 // Healthy is the health path's answer: the database answers.

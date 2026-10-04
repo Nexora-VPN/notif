@@ -36,6 +36,11 @@ sh install.sh --method docker --opt port=8097 --opt admin_password=… \
   --panel-url https://panel.example --claim-code …
 ```
 
+Everything is served under the install's admin path (`base_path`, drawn at
+random when none is given); `public_url` and `https` (`acme`, `self-signed`
+for an address by IP, or `off`) give it its own HTTPS, and the **Set-up**
+page walks through the rest.
+
 `--method script` installs the binary under systemd instead of Docker, as
 its own user with only its data directory writable, after checking the
 archive against the release's `SHA256SUMS` (and, installed by the panel

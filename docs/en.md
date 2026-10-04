@@ -36,9 +36,23 @@ answers its health check the panel registers it and asks you to approve its
 permissions: reading accounts, and writing the messenger links into their
 contact cards.
 
-Sign in at `http://<host>:8097` with the first admin, and turn on two-factor
-sign-in under **Security**. A lost password is reset on the server:
-`notif admin reset-password -user admin -pass …`.
+Everything Notif serves — the admin web, its API, what the panel calls — is
+under the **admin path** the install asks (`base_path`): the panel draws a
+random one, and so does `install.sh` on a first install given none
+(`base_path=` puts Notif at the root; an update keeps what it has). The
+root answers nothing, so a scanner finds nothing, and the install prints
+the address: sign in at `http://<host>:8097/<path>/` with the first admin.
+
+The install also asks the **public address** you open Notif at (scheme, host
+and port; the path goes after it) and **HTTPS**: `acme` gets a free
+certificate for its domain on port 443 of this server and renews it;
+`self-signed` makes one of Notif's own for an address by IP, which the
+browser warns about once — compare the fingerprint **Set-up** shows; `off`
+leaves it to a proxy of yours. The **Set-up** page then goes step by step:
+the address, checked from outside; a password of your own rather than the
+install's, which stays in its `.env` in the clear; two-factor sign-in; the
+first channel; the panel; the backups. A lost password is reset on the
+server: `notif admin reset-password -user admin -pass …`.
 
 ## Channels
 

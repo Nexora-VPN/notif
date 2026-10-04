@@ -21,8 +21,11 @@ RUN apk add --no-cache ca-certificates tzdata && adduser -D -H -u 10001 notif &&
 COPY --from=build /out/notif /usr/local/bin/notif
 USER notif
 ENV NEXORA_DATA_DIR=/data
+# With https=acme or self-signed Notif answers TLS here; compose publishes
+# the public address's port to it (the user cannot bind 443 itself).
+ENV NEXORA_HTTPS_LISTEN=:8443
 VOLUME /data
-EXPOSE 8097
+EXPOSE 8097 8443
 LABEL org.opencontainers.image.source="https://github.com/Nexora-VPN/notif" \
       org.opencontainers.image.title="Nexora Notif" \
       org.opencontainers.image.licenses="AGPL-3.0-only"

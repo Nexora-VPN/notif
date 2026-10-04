@@ -31,8 +31,17 @@ func TestMain(m *testing.M) {
 // tables emptied first) — with one admin, admin / correct horse.
 func newServer(t *testing.T) (*Server, *gorm.DB, http.Handler) {
 	t.Helper()
+	return newServerWith(t, nil)
+}
+
+// newServerWith is newServer with the configuration changed first.
+func newServerWith(t *testing.T, change func(*config.Config)) (*Server, *gorm.DB, http.Handler) {
+	t.Helper()
 	dir := t.TempDir()
 	cfg := config.Config{Port: "0", DataDir: dir, Driver: config.DriverSQLite, DSN: dir + "/notif.db"}
+	if change != nil {
+		change(&cfg)
+	}
 	if dsn := os.Getenv("NEXORA_TEST_POSTGRES_DSN"); dsn != "" {
 		cfg.Driver, cfg.DSN = config.DriverPostgres, dsn
 	}

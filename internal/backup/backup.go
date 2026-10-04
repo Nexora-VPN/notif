@@ -51,6 +51,22 @@ func Snapshot(gdb *gorm.DB, cfg config.Config, path string) error {
 // Dir is where the daily copies go.
 func Dir(cfg config.Config) string { return filepath.Join(cfg.DataDir, "backups") }
 
+// Latest is when the newest daily copy was taken; zero when there is none
+// (or on PostgreSQL, which Notif does not copy itself).
+func Latest(cfg config.Config) time.Time {
+	var latest time.Time
+	entries, _ := os.ReadDir(Dir(cfg))
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasPrefix(e.Name(), "notif-") || !strings.HasSuffix(e.Name(), ".db") {
+			continue
+		}
+		if info, err := e.Info(); err == nil && info.ModTime().After(latest) {
+			latest = info.ModTime()
+		}
+	}
+	return latest
+}
+
 // Daily takes today's copy unless there is one, and keeps the last Keep.
 func Daily(gdb *gorm.DB, cfg config.Config, now time.Time) error {
 	if cfg.Driver != config.DriverSQLite {

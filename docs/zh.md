@@ -17,7 +17,9 @@ sh install.sh --method docker --opt port=8097 --opt admin_password=… \
 
 `--method script` 用 systemd 代替 Docker 运行程序。同一条命令可就地更新；`--uninstall [--purge]` 用于卸载。Notif 通过健康检查后，面板会注册它并请您批准其权限：读取账户，以及把即时通讯的关联写入账户的联系信息。
 
-用首个管理员登录 `http://<host>:8097`，并在**安全**中开启两步验证。忘记的密码可在服务器上重置：`notif admin reset-password -user admin -pass …`。
+Notif 提供的一切——管理后台、其 API、面板的请求——都在安装时询问的**管理路径**（`base_path`）之下：面板会随机生成一个，`install.sh` 在首次安装且未给出路径时也会生成（`base_path=` 把 Notif 放在根路径；更新时保留已有的值）。根路径不作任何应答，扫描器什么也找不到；安装会打印地址：用首个管理员登录 `http://<host>:8097/<path>/`。
+
+安装还会询问 Notif 的**公开地址**（协议、主机和端口；路径接在其后）和 **HTTPS**：`acme` 在本服务器 443 端口为其域名获取免费证书并自动续期；`self-signed` 为以 IP 访问的地址生成 Notif 自己的证书，浏览器会提示一次警告——请比对**设置**页显示的指纹；`off` 交给您自己的代理。之后**设置**页会逐步引导：从外部检查的地址；您自己的密码（而非安装时的密码，它以明文保存在 `.env` 中）；两步登录；第一个渠道；面板；备份。忘记的密码可在服务器上重置：`notif admin reset-password -user admin -pass …`。
 
 ## 渠道
 

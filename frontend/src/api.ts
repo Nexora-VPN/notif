@@ -67,6 +67,26 @@ export interface Me {
   lastLoginAt: number
 }
 
+export interface SetupStep {
+  key: string
+  done: boolean
+  detail?: string
+  optional?: boolean
+}
+
+// Setup is the set-up checklist: its steps, and the address, the base path
+// and the certificate they are about.
+export interface Setup {
+  steps: SetupStep[]
+  done: boolean
+  https: string
+  fingerprint?: string
+  publicUrl: string
+  basePath: string
+  adminUrl?: string
+  database: string
+}
+
 export interface Status {
   version: string
   database: string
@@ -275,6 +295,12 @@ export const api = {
   totpConfirm: (code: string) => call<void>('POST', '/me/2fa/totp/confirm', { code }),
   totpDisable: (password: string) => call<void>('DELETE', '/me/2fa', { password }),
   status: () => call<Status>('GET', '/status'),
+  setup: () => call<Setup>('GET', '/setup'),
+  setupAddress: (publicUrl: string, check: boolean) =>
+    call<{ publicUrl: string; reachable: boolean; error?: string }>('PUT', '/setup/address', {
+      publicUrl,
+      check,
+    }),
   summary: () => call<Summary>('GET', '/summary'),
   planSend: (b: SendBody) => call<SendPlan>('POST', '/sends/preview', b),
   send: (b: SendBody) => call<SendReport>('POST', '/sends', b),

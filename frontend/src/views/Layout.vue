@@ -20,6 +20,7 @@ const nav = computed(() => [
   { to: { name: 'log' }, icon: 'pi pi-list', label: t('nav.log') },
   { to: { name: 'settings' }, icon: 'pi pi-cog', label: t('nav.settings') },
   { to: { name: 'security' }, icon: 'pi pi-shield', label: t('nav.security') },
+  { to: { name: 'setup' }, icon: 'pi pi-check-square', label: t('nav.setup') },
 ])
 
 async function signOut() {
