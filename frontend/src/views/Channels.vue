@@ -46,11 +46,17 @@ function rate(c: Channel) {
 function kindName(name: string) {
   return te('kinds.' + name + '.name') ? t('kinds.' + name + '.name') : name
 }
+// A field's words: the kind's own, else the ones the bots share.
+function fieldText(k: string, f: string, fallback: string) {
+  if (te('kinds.' + k + '.' + f)) return t('kinds.' + k + '.' + f)
+  if (te('fields.' + f)) return t('fields.' + f)
+  return fallback
+}
 function fieldLabel(k: string, f: string) {
-  return te('kinds.' + k + '.' + f) ? t('kinds.' + k + '.' + f) : f
+  return fieldText(k, f, f)
 }
 function fieldHelp(k: string, f: string) {
-  return te('kinds.' + k + '.' + f + 'Help') ? t('kinds.' + k + '.' + f + 'Help') : ''
+  return fieldText(k, f + 'Help', '')
 }
 
 function fail(e: unknown) {
@@ -192,11 +198,21 @@ const variables =
         <div class="who">
           <b>{{ c.name }}</b>
           <Tag :value="kindName(c.kind)" severity="secondary" />
+          <span v-if="c.state?.username" class="mono muted" dir="ltr">{{
+            '@' + c.state.username
+          }}</span>
+          <Tag
+            v-if="c.state?.error"
+            severity="danger"
+            :value="t('channels.problem')"
+            v-tooltip="c.state.error"
+          />
           <small class="muted">
             {{ t('channels.perMinute') }}:
             <span class="mono">{{ rate(c) }}</span>
           </small>
         </div>
+        <p v-if="c.state?.error" class="err">{{ c.state.error }}</p>
         <div class="acts">
           <ToggleSwitch
             :model-value="c.enabled"
@@ -269,8 +285,18 @@ const variables =
         </div>
         <div v-for="f in kind?.fields ?? []" :key="f.key" class="field">
           <label :for="'f-' + f.key">{{ fieldLabel(form.kind, f.key) }}</label>
+          <Select
+            v-if="f.choices?.length"
+            :id="'f-' + f.key"
+            v-model="form.config[f.key]"
+            :options="
+              f.choices.map((c) => ({ value: c, label: fieldText(form.kind, f.key + '_' + c, c) }))
+            "
+            option-label="label"
+            option-value="value"
+          />
           <Textarea
-            v-if="f.multiline"
+            v-else-if="f.multiline"
             :id="'f-' + f.key"
             v-model="form.config[f.key]"
             rows="4"
@@ -364,6 +390,14 @@ p {
   gap: 1rem;
   flex-wrap: wrap;
   padding: 0.75rem 1rem;
+}
+.err {
+  flex-basis: 100%;
+  order: 3;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--p-red-600);
+  overflow-wrap: anywhere;
 }
 .off {
   opacity: 0.6;

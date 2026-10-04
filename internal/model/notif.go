@@ -18,6 +18,11 @@ type User struct {
 	Group   string                  `json:"group" gorm:"not null;default:''"`
 	AdminID uint                    `json:"adminId" gorm:"index;not null;default:0"`
 	SubURL  string                  `json:"subUrl" gorm:"not null;default:''"`
+	// SubIDHash and SubTokenHash are hashes of the subscription's id and
+	// token, so a user who sends a bot their subscription link is found
+	// without Notif keeping the link's secret part.
+	SubIDHash    string `json:"-" gorm:"index;not null;default:''"`
+	SubTokenHash string `json:"-" gorm:"index;not null;default:''"`
 	// UpdatedAt is the panel's; SeenAt is when this copy was last refreshed;
 	// GoneAt is when the panel said the account was deleted.
 	UpdatedAt int64 `json:"updatedAt" gorm:"not null;default:0"`
@@ -38,8 +43,11 @@ type Channel struct {
 	Config   JSON[map[string]string] `json:"-"`
 	// PerMinute is the most this channel sends in a minute; 0 is the kind's
 	// default.
-	PerMinute int   `json:"perMinute" gorm:"not null;default:0"`
-	CreatedAt int64 `json:"createdAt" gorm:"autoCreateTime"`
+	PerMinute int `json:"perMinute" gorm:"not null;default:0"`
+	// State is what the channel itself reports: a bot's username, why its
+	// updates cannot be read.
+	State     JSON[map[string]string] `json:"state"`
+	CreatedAt int64                   `json:"createdAt" gorm:"autoCreateTime"`
 }
 
 // The states of a delivery.

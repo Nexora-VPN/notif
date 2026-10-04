@@ -60,10 +60,12 @@ export interface Field {
   required?: boolean
   multiline?: boolean
   default?: string
+  choices?: string[]
 }
 
 export interface Kind {
   name: string
+  contact?: string
   fields: Field[]
   perMinute: number
 }
@@ -76,6 +78,7 @@ export interface Channel {
   position: number
   perMinute: number
   config: Record<string, string>
+  state: Record<string, string> | null
 }
 
 export interface ChannelBody {
@@ -133,6 +136,27 @@ export interface Summary {
   quiet: boolean
 }
 
+export interface UserRow {
+  id: number
+  name: string
+  group: string
+  enable: boolean
+  expiry: number
+  volume: number
+  used: number
+  reach: Record<string, string>
+  contact?: Record<string, string>
+}
+
+export interface BotLink {
+  channelId: number
+  name: string
+  kind: string
+  username: string
+  url?: string
+  linked?: string
+}
+
 export const api = {
   login: (username: string, password: string) =>
     call<Me | { mfa: true; token: string }>('POST', '/login', { username, password }),
@@ -160,6 +184,15 @@ export const api = {
     if (q.user) p.set('user', q.user)
     return call<{ items: Delivery[]; total: number }>('GET', '/deliveries?' + p.toString())
   },
+  users: (q: string, limit: number, offset: number) =>
+    call<{ items: UserRow[]; total: number }>(
+      'GET',
+      '/users?' +
+        new URLSearchParams({ q, limit: String(limit), offset: String(offset) }).toString(),
+    ),
+  user: (id: number) =>
+    call<{ user: UserRow; code: string; bots: BotLink[] | null }>('GET', '/users/' + id),
+  unlink: (id: number, key: string) => call<void>('POST', '/users/' + id + '/unlink', { key }),
   delivery: (id: number) => call<Delivery>('GET', '/deliveries/' + id),
   cancelDelivery: (id: number) => call<void>('POST', '/deliveries/' + id + '/cancel'),
   deliverySettings: () =>

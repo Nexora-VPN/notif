@@ -2,6 +2,7 @@ package outbox
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -37,6 +38,8 @@ func (s stubSender) Send(_ context.Context, to channel.Recipient, m channel.Mess
 		return &channel.Refused{Reason: "blocked"}
 	case "fail":
 		return &channel.Retry{Reason: "down"}
+	case "blocked":
+		return &channel.Refused{Reason: "blocked", Unlink: "telegram_id"}
 	}
 	stubs.sent[s.name] = append(stubs.sent[s.name], to.Name+":"+m.Text)
 	return nil
@@ -300,5 +303,19 @@ func TestPruneKeepsWhatIsYoung(t *testing.T) {
 	gdb.Model(&model.Attempt{}).Count(&a)
 	if n != 1 || a != 0 {
 		t.Fatalf("after prune: %d deliveries, %d attempts", n, a)
+	}
+}
+
+// TestABlockedBotIsUnlinked: a refusal that names a link hands it to the
+// unlink hook and the notice falls to the next channel.
+func TestABlockedBotIsUnlinked(t *testing.T) {
+	o, gdb, _ := fixture(t)
+	var got []string
+	o.Unlink = func(id uint, key string) { got = append(got, fmt.Sprint(id, key)) }
+	stubs.answers["first/ana"] = "blocked"
+	o.Enqueue(custom("b", 1))
+	o.ProcessDue(context.Background())
+	if len(got) != 1 || got[0] != "1telegram_id" || status(t, gdb, "b").ChannelID != 2 {
+		t.Fatalf("unlinked %v, delivery %+v", got, status(t, gdb, "b"))
 	}
 }

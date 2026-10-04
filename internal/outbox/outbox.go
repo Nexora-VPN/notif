@@ -46,6 +46,9 @@ type Outbox struct {
 	Now func() time.Time
 	// Workers is how many deliveries are sent at once.
 	Workers int
+	// Unlink takes a contact key off an account whose channel said the user
+	// can no longer be reached there (a bot the user blocked).
+	Unlink func(userID uint, key string)
 
 	kick chan struct{}
 	mu   sync.Mutex
@@ -260,7 +263,12 @@ func (o *Outbox) process(ctx context.Context, id uint) {
 		case errors.Is(err, channel.ErrNoAddress):
 			o.finish(a, model.AttemptNoAddress, err.Error())
 		case errors.As(err, &refused):
-			o.finish(a, model.AttemptRefused, refused.Reason)
+			detail := refused.Reason
+			if refused.Unlink != "" && o.Unlink != nil {
+				detail += " (" + refused.Unlink + " removed from the account)"
+				o.Unlink(u.ID, refused.Unlink)
+			}
+			o.finish(a, model.AttemptRefused, detail)
 		default:
 			reason, after := err.Error(), time.Duration(0)
 			if errors.As(err, &retry) {

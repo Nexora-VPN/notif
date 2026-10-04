@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 )
@@ -38,8 +39,13 @@ type Message struct {
 var ErrNoAddress = errors.New("the user has no address on this channel")
 
 // Refused is the channel turning this user down for good — a blocked bot,
-// a number that does not exist. The next channel is tried at once.
-type Refused struct{ Reason string }
+// a number that does not exist. The next channel is tried at once. Unlink
+// names the contact key that no longer reaches the user (a bot the user
+// blocked), for the outbox to remove from the panel.
+type Refused struct {
+	Reason string
+	Unlink string
+}
 
 func (e *Refused) Error() string { return e.Reason }
 
@@ -65,12 +71,17 @@ type Field struct {
 	// Multiline asks for a text area (headers, a body template).
 	Multiline bool   `json:"multiline,omitempty"`
 	Default   string `json:"default,omitempty"`
+	// Choices, when set, are the only values the field takes.
+	Choices []string `json:"choices,omitempty"`
 }
 
 // Kind is one kind of channel.
 type Kind struct {
 	Name   string  `json:"name"`
 	Fields []Field `json:"fields"`
+	// Contact is the contact key a bot kind links (telegram_id…), "" for a
+	// kind that is not a bot.
+	Contact string `json:"contact,omitempty"`
 	// PerMinute is the send rate when the admin sets none.
 	PerMinute int `json:"perMinute"`
 	// New makes a sender from a channel's settings, refusing ones that
@@ -116,6 +127,9 @@ func Check(kind string, cfg map[string]string) (map[string]string, error) {
 		}
 		if f.Required && v == "" {
 			return nil, fmt.Errorf("%s is required", f.Key)
+		}
+		if len(f.Choices) > 0 && v != "" && !slices.Contains(f.Choices, v) {
+			return nil, fmt.Errorf("%s must be one of %v", f.Key, f.Choices)
 		}
 		out[f.Key] = v
 	}

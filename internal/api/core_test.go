@@ -99,3 +99,37 @@ func TestChannelsTheirOrderAndATest(t *testing.T) {
 		t.Fatalf("delete: %d", w.Code)
 	}
 }
+
+// TestAnAccountsLinks: the list shows where an account is reachable, and its
+// page gives the link code and the Telegram link that carries it.
+func TestAnAccountsLinks(t *testing.T) {
+	s, gdb, h := newServer(t)
+	c := session(t, call(t, h, "POST", "/api/login", `{"username":"admin","password":"correct horse"}`))
+	gdb.Create(&model.User{ID: 9, Name: "bob", Contact: model.JSON[map[string]string]{V: map[string]string{"bale_id": "77", "note": "x"}}})
+	gdb.Create(&model.Channel{
+		Kind: "telegram", Name: "tg", Enabled: true, Position: 1,
+		Config: model.JSON[map[string]string]{V: map[string]string{"token": "1:a"}},
+		State:  model.JSON[map[string]string]{V: map[string]string{"username": "notif_bot"}},
+	})
+	var list struct {
+		Items []struct {
+			Name  string
+			Reach map[string]string
+		}
+	}
+	_ = json.Unmarshal(call(t, h, "GET", "/api/users?q=bo", "", c).Body.Bytes(), &list)
+	if len(list.Items) != 1 || list.Items[0].Reach["bale_id"] != "77" || list.Items[0].Reach["note"] != "" {
+		t.Fatalf("list %+v", list)
+	}
+	var one struct {
+		Code string
+		Bots []struct{ URL, Username string }
+	}
+	_ = json.Unmarshal(call(t, h, "GET", "/api/users/9", "", c).Body.Bytes(), &one)
+	if one.Code != s.links.Code(9) || len(one.Bots) != 1 || one.Bots[0].URL != "https://t.me/notif_bot?start="+one.Code {
+		t.Fatalf("account %+v", one)
+	}
+	if w := call(t, h, "POST", "/api/users/9/unlink", `{"key":"phone"}`, c); w.Code != http.StatusBadRequest {
+		t.Fatalf("unlinking a phone: %d", w.Code)
+	}
+}

@@ -9,6 +9,8 @@ package users
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"strconv"
@@ -52,7 +54,19 @@ type account struct {
 	Group     string            `json:"group"`
 	AdminID   uint              `json:"adminId"`
 	SubURL    string            `json:"subUrl"`
+	SubID     string            `json:"subId"`
+	SubToken  string            `json:"subToken"`
 	UpdatedAt int64             `json:"updatedAt"`
+}
+
+// SubHash is what the copy keeps of a subscription id or token: enough to
+// recognise one a user sends, nothing to rebuild it from.
+func SubHash(v string) string {
+	if v == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte("notif-sub:" + v))
+	return hex.EncodeToString(sum[:])
 }
 
 func (s *Sync) now() time.Time {
@@ -74,7 +88,8 @@ func (s *Sync) save(list []account, seen int64) error {
 		rows = append(rows, model.User{
 			ID: a.ID, Name: a.Name, Contact: model.JSON[map[string]string]{V: a.Contact}, Enable: a.Enable,
 			Expiry: a.Expiry, Volume: a.Volume, Used: a.Up + a.Down, Group: a.Group, AdminID: a.AdminID,
-			SubURL: a.SubURL, UpdatedAt: a.UpdatedAt, SeenAt: seen,
+			SubURL: a.SubURL, SubIDHash: SubHash(a.SubID), SubTokenHash: SubHash(a.SubToken),
+			UpdatedAt: a.UpdatedAt, SeenAt: seen,
 		})
 	}
 	return s.DB.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(rows, 200).Error

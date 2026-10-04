@@ -19,9 +19,12 @@ import (
 	"github.com/nexora-vpn/addon-kit/auth"
 	"github.com/nexora-vpn/addon-kit/panel"
 	"github.com/nexora-vpn/notif/internal/admins"
+	"github.com/nexora-vpn/notif/internal/bots"
 	"github.com/nexora-vpn/notif/internal/config"
+	"github.com/nexora-vpn/notif/internal/links"
 	"github.com/nexora-vpn/notif/internal/model"
 	"github.com/nexora-vpn/notif/internal/outbox"
+	"github.com/nexora-vpn/notif/internal/settings"
 	"github.com/nexora-vpn/notif/internal/users"
 	"gorm.io/gorm"
 )
@@ -41,6 +44,10 @@ type Server struct {
 	// outbox sends the deliveries; users keeps the copy of the accounts.
 	outbox *outbox.Outbox
 	users  *users.Sync
+	// links writes users' messenger chats to their contact cards; bots reads
+	// what users write to the bots.
+	links *links.Links
+	bots  *bots.Manager
 
 	mu      sync.Mutex
 	pending map[string]pendingLogin // sign-in token → the admin waiting for a code
@@ -67,6 +74,24 @@ func New(gdb *gorm.DB, a *addon.Addon, cfg config.Config, version string, spa fs
 		}
 		return nil
 	}}
+	secret, err := settings.Secret(gdb)
+	if err != nil {
+		log.Printf("settings: the secret: %v", err)
+	}
+	s.links = &links.Links{DB: gdb, Users: s.users, Secret: secret, Panel: func() links.Panel {
+		if c := s.panelClient(); c != nil {
+			return c
+		}
+		return nil
+	}}
+	s.bots = bots.New(gdb, s.links)
+	s.outbox.Unlink = func(userID uint, key string) {
+		go func() {
+			if err := s.links.Set(context.Background(), userID, key, ""); err != nil {
+				log.Printf("links: unlink %s of %d: %v", key, userID, err)
+			}
+		}()
+	}
 	a.OnSetup(s.registered)
 	a.OnEvent(s.event)
 	return s
@@ -106,6 +131,7 @@ func urlQuery(v string) string { return url.QueryEscape(v) }
 func (s *Server) Run(ctx context.Context) {
 	go s.outbox.Run(ctx)
 	go s.users.Run(ctx)
+	go s.bots.Run(ctx)
 	day := time.NewTicker(24 * time.Hour)
 	defer day.Stop()
 	s.outbox.Prune()
@@ -151,6 +177,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/me/2fa", s.signedIn(s.handleTOTPDisable))
 	mux.HandleFunc("GET /api/status", s.signedIn(s.handleStatus))
 	s.mountCore(mux)
+	s.mountUsers(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeErr(w, http.StatusNotFound, "no such API route")
 	})

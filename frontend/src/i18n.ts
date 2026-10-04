@@ -13,6 +13,7 @@ const en = {
     channels: 'Channels',
     log: 'Log',
     settings: 'Settings',
+    users: 'Accounts',
   },
   login: {
     title: 'Sign in',
@@ -104,6 +105,7 @@ const en = {
     empty: 'No channels yet.',
     secretKept: 'Leave it as it is to keep the saved value.',
     variables: 'Variables in the address and the body',
+    problem: 'Problem',
   },
   kinds: {
     http: {
@@ -119,6 +121,15 @@ const en = {
       contentType: 'Content type',
       body: 'Body',
       bodyHelp: 'A template over the notice.',
+    },
+    telegram: {
+      name: 'Telegram',
+    },
+    bale: {
+      name: 'Bale',
+    },
+    soroush: {
+      name: 'Soroush Plus',
     },
   },
   log: {
@@ -169,6 +180,51 @@ const en = {
     languageHelp: 'Used when an account’s contact card has no lang field.',
     retention: 'Keep the log for (days)',
   },
+  fields: {
+    token: 'Bot token',
+    tokenHelp:
+      'As the BotFather gave it: id:secret. Give Notif a bot of its own: one bot’s updates can be read by one program only.',
+    apiBase: 'API address',
+    apiBaseHelp: 'The Bot API’s address. Change it only for a Bot API mirror.',
+    proxy: 'Proxy',
+    proxyHelp:
+      'socks5://host:port or http://host:port, for a server that cannot reach the API directly. Empty connects directly.',
+    business: 'Business API',
+    businessHelp:
+      'Bale slows a bot that writes to users who are not talking to it; its paid business API is for notices. On sends through it.',
+    business_off: 'Off',
+    business_on: 'On',
+  },
+  users: {
+    title: 'Accounts',
+    intro:
+      'The panel’s accounts as Notif knows them, and where each can be reached. A user links a bot by sending it their subscription link or the link code below.',
+    search: 'Name or contact',
+    empty: 'No accounts.',
+    name: 'Account',
+    reach: 'Reachable on',
+    group: 'Group',
+    expiry: 'Expires',
+    never: 'never',
+    nowhere: 'nowhere yet',
+    code: 'Link code',
+    codeHelp:
+      'The user sends this to any of the bots, or opens the Telegram link, which carries it.',
+    copy: 'Copy',
+    copied: 'Copied.',
+    linked: 'linked',
+    notLinked: 'not linked',
+    links: 'Contact card',
+    unlink: 'Unlink',
+    keys: {
+      telegram_id: 'Telegram',
+      bale_id: 'Bale',
+      soroush_id: 'Soroush Plus',
+      rubika_id: 'Rubika',
+      phone: 'Phone',
+      email: 'Email',
+    },
+  },
 }
 
 type Messages = typeof en
@@ -183,6 +239,7 @@ const fa: Messages = {
     channels: 'پیام‌رسان‌ها',
     log: 'گزارش ارسال',
     settings: 'تنظیمات',
+    users: 'حساب‌ها',
   },
   login: {
     title: 'ورود',
@@ -274,6 +331,7 @@ const fa: Messages = {
     empty: 'هنوز پیام‌رسانی نیست.',
     secretKept: 'اگر دست نزنید، مقدار ذخیره‌شده می‌ماند.',
     variables: 'متغیرهای نشانی و بدنه',
+    problem: 'مشکل',
   },
   kinds: {
     http: {
@@ -289,6 +347,15 @@ const fa: Messages = {
       contentType: 'نوع محتوا',
       body: 'بدنه',
       bodyHelp: 'قالبی روی متن اعلان.',
+    },
+    telegram: {
+      name: 'تلگرام',
+    },
+    bale: {
+      name: 'بله',
+    },
+    soroush: {
+      name: 'سروش‌پلاس',
     },
   },
   log: {
@@ -339,6 +406,51 @@ const fa: Messages = {
     languageHelp: 'وقتی در اطلاعات تماس حساب فیلد lang نباشد.',
     retention: 'نگهداری گزارش (روز)',
   },
+  fields: {
+    token: 'توکن ربات',
+    tokenHelp:
+      'همان‌طور که BotFather داده: id:secret. یک ربات جدا برای notif بسازید: آپدیت‌های هر ربات را فقط یک برنامه می‌تواند بخواند.',
+    apiBase: 'نشانی API',
+    apiBaseHelp: 'نشانی Bot API. فقط برای آینهٔ Bot API عوضش کنید.',
+    proxy: 'پروکسی',
+    proxyHelp:
+      'socks5://host:port یا http://host:port، برای سروری که مستقیم به API نمی‌رسد. خالی یعنی اتصال مستقیم.',
+    business: 'API کسب‌وکار',
+    businessHelp:
+      'بله رباتی را که به کاربرانِ خارج از گفتگو پیام می‌دهد کند می‌کند؛ API پولی کسب‌وکار بله برای اعلان است. روشن یعنی ارسال از آن راه.',
+    business_off: 'خاموش',
+    business_on: 'روشن',
+  },
+  users: {
+    title: 'حساب‌ها',
+    intro:
+      'حساب‌های پنل همان‌طور که notif می‌شناسد، و اینکه هر کدام از کجا در دسترس است. کاربر با فرستادن لینک اشتراک یا کد اتصال زیر به ربات وصل می‌شود.',
+    search: 'نام یا اطلاعات تماس',
+    empty: 'حسابی نیست.',
+    name: 'حساب',
+    reach: 'در دسترس از',
+    group: 'گروه',
+    expiry: 'انقضا',
+    never: 'بی‌انقضا',
+    nowhere: 'هنوز هیچ‌جا',
+    code: 'کد اتصال',
+    codeHelp:
+      'کاربر این را به هر کدام از ربات‌ها می‌فرستد، یا لینک تلگرام را باز می‌کند که کد را همراه دارد.',
+    copy: 'کپی',
+    copied: 'کپی شد.',
+    linked: 'وصل',
+    notLinked: 'وصل نیست',
+    links: 'اطلاعات تماس',
+    unlink: 'قطع اتصال',
+    keys: {
+      telegram_id: 'تلگرام',
+      bale_id: 'بله',
+      soroush_id: 'سروش‌پلاس',
+      rubika_id: 'روبیکا',
+      phone: 'تلفن',
+      email: 'ایمیل',
+    },
+  },
 }
 
 const ru: Messages = {
@@ -351,6 +463,7 @@ const ru: Messages = {
     channels: 'Каналы',
     log: 'Журнал',
     settings: 'Настройки',
+    users: 'Аккаунты',
   },
   login: {
     title: 'Вход',
@@ -442,6 +555,7 @@ const ru: Messages = {
     empty: 'Каналов пока нет.',
     secretKept: 'Оставьте как есть, чтобы сохранить прежнее значение.',
     variables: 'Переменные адреса и тела',
+    problem: 'Проблема',
   },
   kinds: {
     http: {
@@ -457,6 +571,15 @@ const ru: Messages = {
       contentType: 'Тип содержимого',
       body: 'Тело',
       bodyHelp: 'Шаблон по тексту уведомления.',
+    },
+    telegram: {
+      name: 'Telegram',
+    },
+    bale: {
+      name: 'Bale',
+    },
+    soroush: {
+      name: 'Soroush Plus',
     },
   },
   log: {
@@ -507,6 +630,51 @@ const ru: Messages = {
     languageHelp: 'Если в контактной карточке аккаунта нет поля lang.',
     retention: 'Хранить журнал (дней)',
   },
+  fields: {
+    token: 'Токен бота',
+    tokenHelp:
+      'Как его выдал BotFather: id:secret. Заведите для Notif отдельного бота: обновления одного бота может читать только одна программа.',
+    apiBase: 'Адрес API',
+    apiBaseHelp: 'Адрес Bot API. Меняйте только для зеркала Bot API.',
+    proxy: 'Прокси',
+    proxyHelp:
+      'socks5://host:port или http://host:port — для сервера, который не достаёт до API напрямую. Пусто — напрямую.',
+    business: 'Бизнес-API',
+    businessHelp:
+      'Bale замедляет бота, который пишет пользователям вне диалога; платный бизнес-API Bale предназначен для уведомлений. Включено — отправка через него.',
+    business_off: 'Выкл.',
+    business_on: 'Вкл.',
+  },
+  users: {
+    title: 'Аккаунты',
+    intro:
+      'Аккаунты панели, как их знает Notif, и где до каждого можно достучаться. Пользователь подключает бота, отправив ему ссылку на подписку или код привязки ниже.',
+    search: 'Имя или контакт',
+    empty: 'Аккаунтов нет.',
+    name: 'Аккаунт',
+    reach: 'Доступен через',
+    group: 'Группа',
+    expiry: 'Истекает',
+    never: 'бессрочно',
+    nowhere: 'пока нигде',
+    code: 'Код привязки',
+    codeHelp:
+      'Пользователь отправляет его любому из ботов или открывает ссылку Telegram, в которой он уже есть.',
+    copy: 'Копировать',
+    copied: 'Скопировано.',
+    linked: 'подключён',
+    notLinked: 'не подключён',
+    links: 'Контакты',
+    unlink: 'Отвязать',
+    keys: {
+      telegram_id: 'Telegram',
+      bale_id: 'Bale',
+      soroush_id: 'Soroush Plus',
+      rubika_id: 'Rubika',
+      phone: 'Телефон',
+      email: 'Email',
+    },
+  },
 }
 
 const zh: Messages = {
@@ -519,6 +687,7 @@ const zh: Messages = {
     channels: '渠道',
     log: '发送记录',
     settings: '设置',
+    users: '账户',
   },
   login: {
     title: '登录',
@@ -610,6 +779,7 @@ const zh: Messages = {
     empty: '还没有渠道。',
     secretKept: '保持不变即保留已保存的值。',
     variables: '地址与正文中的变量',
+    problem: '问题',
   },
   kinds: {
     http: {
@@ -624,6 +794,15 @@ const zh: Messages = {
       contentType: '内容类型',
       body: '正文',
       bodyHelp: '基于通知内容的模板。',
+    },
+    telegram: {
+      name: 'Telegram',
+    },
+    bale: {
+      name: 'Bale',
+    },
+    soroush: {
+      name: 'Soroush Plus',
     },
   },
   log: {
@@ -673,6 +852,49 @@ const zh: Messages = {
     language: '用户语言',
     languageHelp: '当账户联系信息中没有 lang 字段时使用。',
     retention: '记录保留（天）',
+  },
+  fields: {
+    token: '机器人令牌',
+    tokenHelp:
+      '即 BotFather 提供的 id:secret。请为 Notif 单独创建机器人：一个机器人的更新只能由一个程序读取。',
+    apiBase: 'API 地址',
+    apiBaseHelp: 'Bot API 的地址，仅在使用 Bot API 镜像时修改。',
+    proxy: '代理',
+    proxyHelp: 'socks5://host:port 或 http://host:port，用于无法直连 API 的服务器。留空为直连。',
+    business: '商业 API',
+    businessHelp:
+      'Bale 会限制向非对话中用户发消息的机器人；其付费商业 API 专用于通知。开启后通过它发送。',
+    business_off: '关',
+    business_on: '开',
+  },
+  users: {
+    title: '账户',
+    intro:
+      'Notif 所知的面板账户，以及每个账户可通过哪些渠道联系。用户向机器人发送订阅链接或下方的绑定码即可关联。',
+    search: '名称或联系方式',
+    empty: '没有账户。',
+    name: '账户',
+    reach: '可联系渠道',
+    group: '分组',
+    expiry: '到期',
+    never: '永不过期',
+    nowhere: '暂无',
+    code: '绑定码',
+    codeHelp: '用户把它发给任一机器人，或打开已附带绑定码的 Telegram 链接。',
+    copy: '复制',
+    copied: '已复制。',
+    linked: '已关联',
+    notLinked: '未关联',
+    links: '联系信息',
+    unlink: '取消关联',
+    keys: {
+      telegram_id: 'Telegram',
+      bale_id: 'Bale',
+      soroush_id: 'Soroush Plus',
+      rubika_id: 'Rubika',
+      phone: '电话',
+      email: '邮箱',
+    },
   },
 }
 

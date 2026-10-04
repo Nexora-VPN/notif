@@ -62,3 +62,9 @@ body {
   font-size: 0.875rem;
   color: var(--notif-muted);
 }
+
+/* Addresses, ids and numbers keep their own order inside right-to-left text. */
+[dir='ltr'] {
+  unicode-bidi: isolate;
+  direction: ltr;
+}

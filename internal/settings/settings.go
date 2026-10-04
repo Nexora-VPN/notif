@@ -3,6 +3,8 @@
 package settings
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -165,4 +167,44 @@ func save(gdb *gorm.DB, key string, v any) error {
 		return err
 	}
 	return gdb.Clauses(clause.OnConflict{UpdateAll: true}).Create(&model.Setting{Key: key, Value: string(b)}).Error
+}
+
+const keySecret = "secret"
+
+// Secret is Notif's own secret — link codes and ntfy topics are derived from
+// it — drawn on first use and kept.
+func Secret(gdb *gorm.DB) ([]byte, error) {
+	var hexed string
+	if err := load(gdb, keySecret, &hexed); err != nil {
+		return nil, err
+	}
+	if b, err := hex.DecodeString(hexed); err == nil && len(b) == 32 {
+		return b, nil
+	}
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return nil, err
+	}
+	// Two first starts must not draw two secrets: the row is created only
+	// when absent, and whatever is there afterwards is the secret.
+	raw, _ := json.Marshal(hex.EncodeToString(b))
+	if err := gdb.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.Setting{Key: keySecret, Value: string(raw)}).Error; err != nil {
+		return nil, err
+	}
+	if err := load(gdb, keySecret, &hexed); err != nil {
+		return nil, err
+	}
+	return hex.DecodeString(hexed)
+}
+
+// Offset is where a bot's updates were read up to.
+func Offset(gdb *gorm.DB, channelID uint) int64 {
+	var n int64
+	_ = load(gdb, fmt.Sprintf("bot_offset:%d", channelID), &n)
+	return n
+}
+
+// SetOffset records it.
+func SetOffset(gdb *gorm.DB, channelID uint, n int64) error {
+	return save(gdb, fmt.Sprintf("bot_offset:%d", channelID), n)
 }

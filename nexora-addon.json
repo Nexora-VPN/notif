@@ -90,6 +90,10 @@
     {
       "scope": "users:read",
       "purpose": "to read the accounts it tells about: their contact details, expiry and traffic"
+    },
+    {
+      "scope": "users:write",
+      "purpose": "to keep in an account's contact card the Telegram, Bale and Soroush Plus chats its user links, and take them away when the user stops a bot"
     }
   ],
   "events": [
