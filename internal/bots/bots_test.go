@@ -248,3 +248,77 @@ func TestAReaderPerBot(t *testing.T) {
 	}
 	cancel()
 }
+
+// TestARubikaReader: a started bot is greeted, a message with the
+// subscription link links the chat on the panel, a stopped bot unlinks it
+// with no reply, and the offset is kept.
+func TestARubikaReader(t *testing.T) {
+	m, fp, _, _ := setup(t)
+	var mu sync.Mutex
+	var said []string
+	var offsets []any
+	batches := [][]string{
+		{`{"type":"StartedBot","chat_id":"b0ana"}`, `{"type":"NewMessage","chat_id":"b0ana","new_message":{"text":"https://x.io/sub/subid-ana-123","sender_type":"User"}}`},
+		{`{"type":"StoppedBot","chat_id":"b0ana"}`},
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var p map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&p)
+		mu.Lock()
+		defer mu.Unlock()
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/getMe"):
+			_, _ = w.Write([]byte(`{"status":"OK","data":{"bot":{"username":"notif_rubika_bot"}}}`))
+		case strings.HasSuffix(r.URL.Path, "/getUpdates"):
+			offsets = append(offsets, p["offset_id"])
+			n := len(offsets)
+			if n <= len(batches) {
+				_, _ = w.Write([]byte(`{"status":"OK","data":{"updates":[` + strings.Join(batches[n-1], ",") + `],"next_offset_id":"o` + string(rune('0'+n)) + `"}}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"status":"OK","data":{"updates":[],"next_offset_id":"o2"}}`))
+		case strings.HasSuffix(r.URL.Path, "/sendMessage"):
+			said = append(said, p["text"].(string))
+			_, _ = w.Write([]byte(`{"status":"OK","data":{"message_id":"1"}}`))
+		}
+	}))
+	defer srv.Close()
+	m.DB.Create(&model.Channel{
+		Kind: "rubika", Name: "rb", Enabled: true, Position: 1,
+		Config: model.JSON[map[string]string]{V: map[string]string{"token": "tok", "apiBase": srv.URL}},
+	})
+	m.Idle = 20 * time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	m.Reconcile(ctx)
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		mu.Lock()
+		done := len(offsets) >= 3
+		mu.Unlock()
+		if done {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("offsets %v", offsets)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	m.stopAll()
+	mu.Lock()
+	defer mu.Unlock()
+	if len(said) != 2 || !strings.HasPrefix(said[0], "Hello!") || !strings.Contains(said[1], "Connected to the account ana") {
+		t.Fatalf("said %q", said)
+	}
+	if offsets[0] != nil || offsets[1] != "o1" || offsets[2] != "o2" {
+		t.Fatalf("offsets %v", offsets)
+	}
+	if _, linked := fp.contacts["7"]["rubika_id"]; linked {
+		t.Fatalf("still linked after StoppedBot: %v", fp.contacts["7"])
+	}
+	var c model.Channel
+	m.DB.First(&c)
+	if c.State.V["username"] != "notif_rubika_bot" {
+		t.Fatalf("state %v", c.State.V)
+	}
+}

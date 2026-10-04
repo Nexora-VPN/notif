@@ -208,3 +208,15 @@ func Offset(gdb *gorm.DB, channelID uint) int64 {
 func SetOffset(gdb *gorm.DB, channelID uint, n int64) error {
 	return save(gdb, fmt.Sprintf("bot_offset:%d", channelID), n)
 }
+
+// OffsetText is where an API with string offsets (Rubika's) was read up to.
+func OffsetText(gdb *gorm.DB, channelID uint) string {
+	var v string
+	_ = load(gdb, fmt.Sprintf("bot_offset_text:%d", channelID), &v)
+	return v
+}
+
+// SetOffsetText records it.
+func SetOffsetText(gdb *gorm.DB, channelID uint, v string) error {
+	return save(gdb, fmt.Sprintf("bot_offset_text:%d", channelID), v)
+}

@@ -28,8 +28,9 @@ const (
 	SoroushAPI = "https://api.splus.ir"
 )
 
-// BotKinds are the kinds that are bots.
-var BotKinds = []string{"telegram", "bale", "soroush"}
+// BotKinds are the kinds that are bots: the three on Telegram's Bot API,
+// and Rubika on its own (rubika.go).
+var BotKinds = []string{"telegram", "bale", "soroush", "rubika"}
 
 func init() {
 	common := func(base string) []Field {

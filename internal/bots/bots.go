@@ -31,8 +31,10 @@ import (
 type Manager struct {
 	DB    *gorm.DB
 	Links *links.Links
-	// Wait is how long one poll waits for updates.
+	// Wait is how long one poll waits for updates; Idle is the pause after
+	// an empty answer from an API that does not wait (Rubika's).
 	Wait time.Duration
+	Idle time.Duration
 
 	mu      sync.Mutex
 	running map[uint]reader
@@ -49,7 +51,7 @@ type reader struct {
 
 // New is a manager.
 func New(gdb *gorm.DB, l *links.Links) *Manager {
-	return &Manager{DB: gdb, Links: l, Wait: 25 * time.Second, running: map[uint]reader{}, tries: auth.NewLimiter(5, 10*time.Minute)}
+	return &Manager{DB: gdb, Links: l, Wait: 25 * time.Second, Idle: 2 * time.Second, running: map[uint]reader{}, tries: auth.NewLimiter(5, 10*time.Minute)}
 }
 
 // Run keeps the readers in step with the channels until ctx ends.
@@ -100,17 +102,28 @@ func (m *Manager) Reconcile(ctx context.Context) {
 		if _, ok := m.running[id]; ok {
 			continue
 		}
-		bot, err := channel.NewBot(c.Kind, c.Config.V)
-		if err != nil {
-			m.state(c.ID, map[string]string{"error": err.Error()})
-			continue
+		var run func(context.Context)
+		if c.Kind == "rubika" {
+			bot, err := channel.NewRubika(c.Config.V)
+			if err != nil {
+				m.state(c.ID, map[string]string{"error": err.Error()})
+				continue
+			}
+			run = func(ctx context.Context) { m.readRubika(ctx, c, bot) }
+		} else {
+			bot, err := channel.NewBot(c.Kind, c.Config.V)
+			if err != nil {
+				m.state(c.ID, map[string]string{"error": err.Error()})
+				continue
+			}
+			run = func(ctx context.Context) { m.read(ctx, c, bot) }
 		}
 		rctx, stop := context.WithCancel(ctx)
 		done := make(chan struct{})
 		m.running[id] = reader{version: version(c), stop: stop, done: done}
 		go func() {
 			defer close(done)
-			m.read(rctx, c, bot)
+			run(rctx)
 		}()
 	}
 }
@@ -185,20 +198,42 @@ func (m *Manager) read(ctx context.Context, c model.Channel, bot *channel.Bot) {
 	}
 }
 
-// Handle answers one message.
+// conversation is one user's chat with one bot, whatever its API.
+type conversation struct {
+	kind, contact, id string
+	// lang is the language to answer in; langKnown says the messenger
+	// named it, so it may be written to the card.
+	lang      string
+	langKnown bool
+	send      func(ctx context.Context, text string) error
+}
+
+func (c conversation) reply(ctx context.Context, key string, vars map[string]string) {
+	if err := c.send(ctx, notices.Bot(key, c.lang, vars)); err != nil {
+		log.Printf("bots: reply to %s %s: %v", c.kind, c.id, err)
+	}
+}
+
+// Handle answers one message to a bot on Telegram's API.
 func (m *Manager) Handle(ctx context.Context, bot *channel.Bot, msg telegram.Message) {
 	if msg.Chat.Type != "" && msg.Chat.Type != "private" {
 		return
 	}
 	chat := msg.Chat.ID
-	chatID := strconv.FormatInt(chat, 10)
-	lang := m.language(msg.From)
-	reply := func(key string, vars map[string]string) {
-		if err := bot.SendText(ctx, bot.API, chat, "", notices.Bot(key, lang, vars)); err != nil {
-			log.Printf("bots: reply to %d: %v", chat, err)
-		}
+	c := conversation{
+		kind: bot.Kind, contact: bot.Contact, id: strconv.FormatInt(chat, 10),
+		lang: m.language(msg.From), langKnown: m.known(msg.From),
+		send: func(ctx context.Context, text string) error {
+			return bot.SendText(ctx, bot.API, chat, "", text)
+		},
 	}
-	text := strings.TrimSpace(msg.Text)
+	m.handle(ctx, c, msg.Text)
+}
+
+// handle is what a bot does with a message, on any API: /start greets or
+// links, /stop unlinks, anything else is tried as a link.
+func (m *Manager) handle(ctx context.Context, c conversation, text string) {
+	text = strings.TrimSpace(text)
 	if text == "" {
 		return
 	}
@@ -206,52 +241,61 @@ func (m *Manager) Handle(ctx context.Context, bot *channel.Bot, msg telegram.Mes
 	cmd, _, _ = strings.Cut(cmd, "@") // /stop@my_bot in a client that adds it
 	switch strings.ToLower(cmd) {
 	case "/stop":
-		linked := m.Links.Linked(bot.Contact, chatID)
-		if len(linked) == 0 {
-			reply("notLinked", nil)
-			return
+		n, err := m.unlinkChat(ctx, c)
+		switch {
+		case err != nil:
+			c.reply(ctx, "failed", nil)
+		case n == 0:
+			c.reply(ctx, "notLinked", nil)
+		default:
+			c.reply(ctx, "stopped", nil)
 		}
-		for _, u := range linked {
-			if err := m.Links.Set(ctx, u.ID, bot.Contact, ""); err != nil {
-				log.Printf("bots: unlink %d: %v", u.ID, err)
-				reply("failed", nil)
-				return
-			}
-		}
-		reply("stopped", nil)
 		return
 	case "/start":
 		text = strings.TrimSpace(arg)
 		if text == "" {
-			reply("welcome", nil)
+			c.reply(ctx, "welcome", nil)
 			return
 		}
 	}
-	key := bot.Kind + ":" + chatID
+	key := c.kind + ":" + c.id
 	if m.tries.Locked(key) {
-		reply("tooMany", nil)
+		c.reply(ctx, "tooMany", nil)
 		return
 	}
 	u, ok := m.account(text)
 	if !ok {
 		m.tries.Fail(key)
-		reply("notFound", nil)
+		c.reply(ctx, "notFound", nil)
 		return
 	}
 	// The chat is the link; the messenger's language, when the card has
 	// none, is the language the user's notices are written in.
-	err := m.Links.Update(ctx, u.ID, func(c map[string]string) {
-		c[bot.Contact] = chatID
-		if c["lang"] == "" && m.known(msg.From) {
-			c["lang"] = lang
+	err := m.Links.Update(ctx, u.ID, func(card map[string]string) {
+		card[c.contact] = c.id
+		if card["lang"] == "" && c.langKnown {
+			card["lang"] = c.lang
 		}
 	})
 	if err != nil {
-		log.Printf("bots: link %d to %s %s: %v", u.ID, bot.Kind, chatID, err)
-		reply("failed", nil)
+		log.Printf("bots: link %d to %s %s: %v", u.ID, c.kind, c.id, err)
+		c.reply(ctx, "failed", nil)
 		return
 	}
-	reply("linked", map[string]string{"name": u.Name})
+	c.reply(ctx, "linked", map[string]string{"name": u.Name})
+}
+
+// unlinkChat takes a chat off every account it is linked to, and says how
+// many there were.
+func (m *Manager) unlinkChat(ctx context.Context, c conversation) (int, error) {
+	linked := m.Links.Linked(c.contact, c.id)
+	for _, u := range linked {
+		if err := m.Links.Set(ctx, u.ID, c.contact, ""); err != nil {
+			log.Printf("bots: unlink %d: %v", u.ID, err)
+			return 0, err
+		}
+	}
+	return len(linked), nil
 }
 
 // account is the one a message names: a link code, else a subscription
@@ -288,4 +332,67 @@ func (m *Manager) language(from *telegram.User) string {
 		}
 	}
 	return cfg.Language
+}
+
+// readRubika polls a Rubika bot until ctx ends. Its getUpdates is not
+// documented as a long poll, so an empty answer waits a second or two.
+func (m *Manager) readRubika(ctx context.Context, c model.Channel, bot *channel.Rubika) {
+	st := map[string]string{}
+	if name, err := bot.Me(ctx); err != nil {
+		st["error"] = err.Error()
+	} else {
+		st["username"] = name
+	}
+	m.state(c.ID, st)
+	offset := settings.OffsetText(m.DB, c.ID)
+	cfg, _ := settings.LoadDelivery(m.DB)
+	for ctx.Err() == nil {
+		ups, next, err := bot.Updates(ctx, offset, 100)
+		wait := m.Idle
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			st["error"] = err.Error()
+			m.state(c.ID, st)
+			wait = 5 * time.Second
+		} else if st["error"] != "" {
+			delete(st, "error")
+			m.state(c.ID, st)
+		}
+		for _, u := range ups {
+			conv := conversation{
+				kind: "rubika", contact: "rubika_id", id: u.ChatID, lang: cfg.Language,
+				send: func(ctx context.Context, text string) error { return bot.SendText(ctx, u.ChatID, "", text) },
+			}
+			switch u.Type {
+			case "StartedBot":
+				conv.reply(ctx, "welcome", nil)
+			case "StoppedBot":
+				// The bot can no longer write to this chat: take the link
+				// away without a word.
+				if _, err := m.unlinkChat(ctx, conv); err != nil {
+					log.Printf("bots: rubika stop %s: %v", u.ChatID, err)
+				}
+			case "NewMessage":
+				if u.NewMessage != nil && (u.NewMessage.SenderType == "" || u.NewMessage.SenderType == "User") {
+					m.handle(ctx, conv, u.NewMessage.Text)
+				}
+			}
+		}
+		if next != "" && next != offset {
+			offset = next
+			if err := settings.SetOffsetText(m.DB, c.ID, offset); err != nil {
+				log.Printf("bots: offset of channel %d: %v", c.ID, err)
+			}
+		}
+		if err == nil && len(ups) > 0 {
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(wait):
+		}
+	}
 }

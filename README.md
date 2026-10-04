@@ -11,14 +11,14 @@ sent only when the free channels could not deliver.
 > **Status: in development.** In place: registration with a panel, the
 > admin web with two-factor sign-in, SQLite or PostgreSQL, the delivery core
 > (channels in a fall-back order, retries, quiet hours, a rate per channel,
-> the delivery log), the generic HTTP channel, and the Telegram, Bale and
-> Soroush Plus bots with linking by subscription link or link code. Rubika,
-> SMS, email, ntfy, the account's notices and the admin's own messages
-> arrive in the next versions.
+> the delivery log), the generic HTTP channel, and the Telegram, Bale,
+> Soroush Plus and Rubika bots with linking by subscription link or link
+> code. SMS, email, ntfy, the account's notices and the admin's own
+> messages arrive in the next versions.
 
 A user links a bot by sending it their subscription link (or the link code
 the admin hands out); the chat id is written into the account's contact
-card on the panel — `telegram_id`, `bale_id` or `soroush_id` — where every
+card on the panel — `telegram_id`, `bale_id`, `soroush_id` or `rubika_id` — where every
 addon reads it, and `/stop` takes it away. Give Notif bots of its own: a
 bot's updates can be read by one program only.
 

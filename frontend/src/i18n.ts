@@ -131,6 +131,13 @@ const en = {
     soroush: {
       name: 'Soroush Plus',
     },
+    rubika: {
+      name: 'Rubika',
+      tokenHelp:
+        'The token Rubika’s BotFather gave. Give Notif a bot of its own: one bot’s updates can be read by one program only.',
+      apiBaseHelp:
+        'Rubika’s Bot API. It may refuse servers outside Iran: set the proxy, or put a relay inside Iran here.',
+    },
   },
   log: {
     title: 'Log',
@@ -357,6 +364,13 @@ const fa: Messages = {
     soroush: {
       name: 'سروش‌پلاس',
     },
+    rubika: {
+      name: 'روبیکا',
+      tokenHelp:
+        'توکنی که BotFather روبیکا داده. یک ربات جدا برای notif بسازید: آپدیت‌های هر ربات را فقط یک برنامه می‌تواند بخواند.',
+      apiBaseHelp:
+        'Bot API روبیکا. ممکن است به سرورهای بیرون از ایران جواب ندهد: پروکسی بگذارید یا نشانی یک واسط داخل ایران را اینجا بنویسید.',
+    },
   },
   log: {
     title: 'گزارش ارسال',
@@ -581,6 +595,13 @@ const ru: Messages = {
     soroush: {
       name: 'Soroush Plus',
     },
+    rubika: {
+      name: 'Rubika',
+      tokenHelp:
+        'Токен, который выдал BotFather в Rubika. Заведите для Notif отдельного бота: обновления одного бота может читать только одна программа.',
+      apiBaseHelp:
+        'Bot API Rubika. Может не отвечать серверам за пределами Ирана: укажите прокси или адрес посредника внутри Ирана.',
+    },
   },
   log: {
     title: 'Журнал',
@@ -803,6 +824,13 @@ const zh: Messages = {
     },
     soroush: {
       name: 'Soroush Plus',
+    },
+    rubika: {
+      name: 'Rubika',
+      tokenHelp:
+        'Rubika 的 BotFather 提供的令牌。请为 Notif 单独创建机器人：一个机器人的更新只能由一个程序读取。',
+      apiBaseHelp:
+        'Rubika 的 Bot API，可能拒绝伊朗境外的服务器：请设置代理，或在此填写伊朗境内中转的地址。',
     },
   },
   log: {
