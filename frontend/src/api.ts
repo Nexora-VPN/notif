@@ -196,6 +196,48 @@ export interface Schedule {
   calendar: string
 }
 
+export interface SendBody {
+  userIds?: number[]
+  filter?: Record<string, string>
+  title: string
+  body: string
+  urgent: boolean
+}
+
+export interface ChannelCount {
+  channelId: number
+  name: string
+  kind: string
+  count: number
+  sms: boolean
+}
+
+export interface SendPlan {
+  total: number
+  unreachable: number
+  sms: number
+  byChannel: ChannelCount[] | null
+  sample: string[] | null
+  preview?: NoticeText
+}
+
+export interface SendReport {
+  id: number
+  title: string
+  body: string
+  filter: Record<string, string>
+  urgent: boolean
+  total: number
+  unreachable: number
+  createdAt: number
+  cancelledAt: number
+  queued: number
+  sent: number
+  failed: number
+  cancelled: number
+  byChannel: ChannelCount[] | null
+}
+
 export const api = {
   login: (username: string, password: string) =>
     call<Me | { mfa: true; token: string }>('POST', '/login', { username, password }),
@@ -209,6 +251,11 @@ export const api = {
   totpDisable: (password: string) => call<void>('DELETE', '/me/2fa', { password }),
   status: () => call<Status>('GET', '/status'),
   summary: () => call<Summary>('GET', '/summary'),
+  planSend: (b: SendBody) => call<SendPlan>('POST', '/sends/preview', b),
+  send: (b: SendBody) => call<SendReport>('POST', '/sends', b),
+  sends: () => call<SendReport[]>('GET', '/sends'),
+  cancelSend: (id: number) => call<SendReport>('POST', '/sends/' + id + '/cancel'),
+  history: (id: number) => call<Delivery[]>('GET', '/users/' + id + '/history'),
   notices: () => call<Notice[]>('GET', '/notices'),
   saveNotice: (kind: string, b: { enabled: boolean; urgent: boolean; texts: Notice['texts'] }) =>
     call<void>('PUT', '/notices/' + kind, b),

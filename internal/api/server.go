@@ -185,6 +185,7 @@ func (s *Server) Handler() http.Handler {
 	s.mountCore(mux)
 	s.mountUsers(mux)
 	s.mountNotices(mux)
+	s.mountSends(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeErr(w, http.StatusNotFound, "no such API route")
 	})

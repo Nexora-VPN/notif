@@ -134,14 +134,19 @@ type Attempt struct {
 // Send is an admin's own message to one user or a group (GN-S5): its
 // deliveries carry its id.
 type Send struct {
-	ID          uint                    `json:"id" gorm:"primaryKey"`
-	OwnerID     uint                    `json:"ownerId" gorm:"index;not null;default:0"`
-	Title       string                  `json:"title" gorm:"not null;default:''"`
-	Body        string                  `json:"body" gorm:"type:text;not null"`
-	Filter      JSON[map[string]string] `json:"filter"`
-	Total       int                     `json:"total" gorm:"not null;default:0"`
-	CreatedAt   int64                   `json:"createdAt" gorm:"autoCreateTime"`
-	CancelledAt int64                   `json:"cancelledAt" gorm:"not null;default:0"`
+	ID      uint                    `json:"id" gorm:"primaryKey"`
+	OwnerID uint                    `json:"ownerId" gorm:"index;not null;default:0"`
+	Title   string                  `json:"title" gorm:"not null;default:''"`
+	Body    string                  `json:"body" gorm:"type:text;not null"`
+	Filter  JSON[map[string]string] `json:"filter"`
+	Urgent  bool                    `json:"urgent" gorm:"not null;default:false"`
+	// Total is how many accounts the recipients matched; Unreachable how
+	// many of them no channel that was on could reach, which were not
+	// queued.
+	Total       int   `json:"total" gorm:"not null;default:0"`
+	Unreachable int   `json:"unreachable" gorm:"not null;default:0"`
+	CreatedAt   int64 `json:"createdAt" gorm:"autoCreateTime"`
+	CancelledAt int64 `json:"cancelledAt" gorm:"not null;default:0"`
 }
 
 // Text is one notice's words in one language.

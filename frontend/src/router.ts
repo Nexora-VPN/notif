@@ -9,6 +9,7 @@ import Log from './views/Log.vue'
 import Settings from './views/Settings.vue'
 import Users from './views/Users.vue'
 import Notices from './views/Notices.vue'
+import Messages from './views/Messages.vue'
 
 export const router = createRouter({
   // Relative to wherever Notif is served, the way its assets are.
@@ -22,6 +23,7 @@ export const router = createRouter({
         { path: '', name: 'dashboard', component: Dashboard },
         { path: 'channels', name: 'channels', component: Channels },
         { path: 'notices', name: 'notices', component: Notices },
+        { path: 'messages', name: 'messages', component: Messages },
         { path: 'users', name: 'users', component: Users },
         { path: 'log', name: 'log', component: Log },
         { path: 'settings', name: 'settings', component: Settings },

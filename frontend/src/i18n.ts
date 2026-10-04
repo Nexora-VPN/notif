@@ -15,6 +15,7 @@ const en = {
     settings: 'Settings',
     users: 'Accounts',
     notices: 'Notices',
+    messages: 'Messages',
   },
   login: {
     title: 'Sign in',
@@ -300,6 +301,8 @@ const en = {
     ntfyOn: 'Turn ntfy on',
     ntfyHelp:
       'The user subscribes to this address in the ntfy app. Whoever knows it can read it: hand it to this user only.',
+    history: 'What was sent',
+    message: 'Send a message',
   },
   notices: {
     title: 'Notices',
@@ -405,6 +408,36 @@ const en = {
       },
     },
   },
+  messages: {
+    title: 'Messages',
+    toAccounts: 'To accounts',
+    toGroup: 'To a group',
+    group: 'Group',
+    status: 'Status',
+    statuses: {
+      active: 'Active',
+      disabled: 'Switched off',
+      expired: 'Expired',
+      limited: 'Traffic used up',
+      pending: 'Not started',
+    },
+    expiring: 'Expiring within (days)',
+    expiringUntil: 'Expiring by',
+    usedGB: 'Used at least (GB)',
+    search: 'Name or contact contains',
+    owner: 'Owner (reseller id, 0 the panel)',
+    template: 'Template id',
+    node: 'Node id',
+    count: 'Count',
+    send: 'Send',
+    confirm: 'Send this message to {n} accounts? {sms} of them by SMS.',
+    queued: 'The message is queued and goes out at the channels’ rates.',
+    planTotal: '{n} accounts match',
+    planSMS: 'By SMS: {n}',
+    unreachable: 'No channel',
+    planNote: 'Where each goes is a forecast: a user who blocked a bot falls to the next channel.',
+    sent: 'Sent messages',
+  },
 }
 
 type Messages = typeof en
@@ -421,6 +454,7 @@ const fa: Messages = {
     settings: 'تنظیمات',
     users: 'حساب‌ها',
     notices: 'اعلان‌ها',
+    messages: 'پیام‌ها',
   },
   login: {
     title: 'ورود',
@@ -706,6 +740,8 @@ const fa: Messages = {
     ntfyOn: 'روشن کردن ntfy',
     ntfyHelp:
       'کاربر در برنامهٔ ntfy مشترک این نشانی می‌شود. هر کس آن را بداند می‌تواند بخواند: فقط به همین کاربر بدهید.',
+    history: 'پیام‌های فرستاده‌شده',
+    message: 'فرستادن پیام',
   },
   notices: {
     title: 'اعلان‌ها',
@@ -811,6 +847,36 @@ const fa: Messages = {
       },
     },
   },
+  messages: {
+    title: 'پیام‌ها',
+    toAccounts: 'به حساب‌ها',
+    toGroup: 'به یک گروه',
+    group: 'گروه',
+    status: 'وضعیت',
+    statuses: {
+      active: 'فعال',
+      disabled: 'غیرفعال',
+      expired: 'منقضی',
+      limited: 'ترافیک تمام‌شده',
+      pending: 'شروع‌نشده',
+    },
+    expiring: 'انقضا تا (روز)',
+    expiringUntil: 'انقضا تا',
+    usedGB: 'دست‌کم مصرف (گیگابایت)',
+    search: 'نام یا اطلاعات تماس شامل',
+    owner: 'صاحب (شناسهٔ نماینده، ۰ خود پنل)',
+    template: 'شناسهٔ قالب',
+    node: 'شناسهٔ نود',
+    count: 'شمارش',
+    send: 'ارسال',
+    confirm: 'این پیام به {n} حساب فرستاده شود؟ {sms} تا با پیامک.',
+    queued: 'پیام در صف است و با سرعت مجاز هر پیام‌رسان فرستاده می‌شود.',
+    planTotal: '{n} حساب پیدا شد',
+    planSMS: 'با پیامک: {n}',
+    unreachable: 'بی‌پیام‌رسان',
+    planNote: 'مسیر هر پیام پیش‌بینی است: کاربری که رباتی را بلاک کرده به پیام‌رسان بعدی می‌رود.',
+    sent: 'پیام‌های فرستاده‌شده',
+  },
 }
 
 const ru: Messages = {
@@ -825,6 +891,7 @@ const ru: Messages = {
     settings: 'Настройки',
     users: 'Аккаунты',
     notices: 'Уведомления',
+    messages: 'Сообщения',
   },
   login: {
     title: 'Вход',
@@ -1111,6 +1178,8 @@ const ru: Messages = {
     ntfyOn: 'Включить ntfy',
     ntfyHelp:
       'Пользователь подписывается на этот адрес в приложении ntfy. Кто знает адрес, тот может читать: передайте его только этому пользователю.',
+    history: 'Что отправлено',
+    message: 'Написать сообщение',
   },
   notices: {
     title: 'Уведомления',
@@ -1216,6 +1285,37 @@ const ru: Messages = {
       },
     },
   },
+  messages: {
+    title: 'Сообщения',
+    toAccounts: 'Аккаунтам',
+    toGroup: 'Группе',
+    group: 'Группа',
+    status: 'Состояние',
+    statuses: {
+      active: 'Активен',
+      disabled: 'Отключён',
+      expired: 'Истёк',
+      limited: 'Трафик исчерпан',
+      pending: 'Не начат',
+    },
+    expiring: 'Истекает в течение (дней)',
+    expiringUntil: 'Истекает до',
+    usedGB: 'Израсходовано не менее (ГБ)',
+    search: 'Имя или контакт содержит',
+    owner: 'Владелец (id реселлера, 0 — панель)',
+    template: 'Id шаблона',
+    node: 'Id узла',
+    count: 'Подсчитать',
+    send: 'Отправить',
+    confirm: 'Отправить сообщение {n} аккаунтам? Из них по SMS: {sms}.',
+    queued: 'Сообщение в очереди и уйдёт со скоростью каналов.',
+    planTotal: 'Подходит аккаунтов: {n}',
+    planSMS: 'По SMS: {n}',
+    unreachable: 'Нет канала',
+    planNote:
+      'Маршрут — прогноз: пользователь, заблокировавший бота, получит через следующий канал.',
+    sent: 'Отправленные сообщения',
+  },
 }
 
 const zh: Messages = {
@@ -1230,6 +1330,7 @@ const zh: Messages = {
     settings: '设置',
     users: '账户',
     notices: '通知',
+    messages: '消息',
   },
   login: {
     title: '登录',
@@ -1510,6 +1611,8 @@ const zh: Messages = {
     },
     ntfyOn: '开启 ntfy',
     ntfyHelp: '用户在 ntfy 应用中订阅此地址。知道地址的人都能读取：只交给该用户。',
+    history: '发送记录',
+    message: '发送消息',
   },
   notices: {
     title: '通知',
@@ -1611,6 +1714,36 @@ const zh: Messages = {
         about: '管理员重新启用了账户。',
       },
     },
+  },
+  messages: {
+    title: '消息',
+    toAccounts: '发给账户',
+    toGroup: '发给分组',
+    group: '分组',
+    status: '状态',
+    statuses: {
+      active: '正常',
+      disabled: '已停用',
+      expired: '已到期',
+      limited: '流量用完',
+      pending: '未开始',
+    },
+    expiring: '几天内到期',
+    expiringUntil: '到期不晚于',
+    usedGB: '已用至少（GB）',
+    search: '名称或联系方式包含',
+    owner: '所有者（代理商 id，0 为面板）',
+    template: '模板 id',
+    node: '节点 id',
+    count: '统计',
+    send: '发送',
+    confirm: '将此消息发送给 {n} 个账户？其中 {sms} 个通过短信。',
+    queued: '消息已排队，将按各渠道速率发送。',
+    planTotal: '匹配 {n} 个账户',
+    planSMS: '短信：{n}',
+    unreachable: '无渠道',
+    planNote: '每条消息的渠道为预测：屏蔽了机器人的用户会改走下一个渠道。',
+    sent: '已发送的消息',
   },
 }
 

@@ -76,7 +76,7 @@ func open(t *testing.T) *gorm.DB {
 		t.Fatal(err)
 	}
 	if cfg.Driver == config.DriverPostgres {
-		gdb.Exec("TRUNCATE settings, users, channels, deliveries, attempts, sends RESTART IDENTITY")
+		gdb.Exec("TRUNCATE settings, users, channels, deliveries, attempts, sends, notices RESTART IDENTITY")
 	}
 	return gdb
 }

@@ -17,8 +17,9 @@ sent only when the free channels could not deliver.
 > presets (SMS.ru, SMSC, SMS Aero, MTS Exolve, VK, LINE, Matrix, Pushover);
 > the account's notices — the panel's events, an admin's edits, and the
 > admin's own schedule of expiry and traffic warnings — in the admin's own
-> words in four languages. The admin's own messages arrive in the next
-> version.
+> words in four languages; and the admin's own messages to one account or
+> to a group picked by the panel's filters, counted per channel (SMS apart)
+> before they go, cancellable, with a report.
 
 A user links a bot by sending it their subscription link (or the link code
 the admin hands out); the chat id is written into the account's contact

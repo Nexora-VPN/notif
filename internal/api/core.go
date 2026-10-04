@@ -502,3 +502,8 @@ func serverZone(now time.Time) string {
 	}
 	return fmt.Sprintf("%s, UTC%s%02d:%02d", abbr, sign, off/3600, off%3600/60)
 }
+
+func (s *Server) deliverySettings() settings.Delivery {
+	d, _ := settings.LoadDelivery(s.db)
+	return d
+}

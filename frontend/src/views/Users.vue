@@ -8,9 +8,10 @@ import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Tag from 'primevue/tag'
-import { api, type BotLink, type NtfyFeed, type UserRow } from '../api'
+import { useRouter } from 'vue-router'
+import { api, type BotLink, type Delivery, type NtfyFeed, type UserRow } from '../api'
 
-const { t, locale } = useI18n()
+const { t, te, locale } = useI18n()
 const toast = useToast()
 
 const q = ref('')
@@ -20,6 +21,8 @@ const first = ref(0)
 const rows = 25
 const open = ref<{ user: UserRow; code: string; bots: BotLink[]; ntfy: NtfyFeed[] } | null>(null)
 const busy = ref(false)
+const router = useRouter()
+const history = ref<Delivery[]>([])
 
 const keys = ['telegram_id', 'bale_id', 'soroush_id', 'rubika_id', 'ntfy', 'phone', 'email']
 
@@ -57,6 +60,7 @@ async function show(u: UserRow) {
   try {
     const r = await api.user(u.id)
     open.value = { user: r.user, code: r.code, bots: r.bots ?? [], ntfy: r.ntfy ?? [] }
+    history.value = await api.history(u.id)
   } catch (e) {
     fail(e)
   }
@@ -241,7 +245,33 @@ function when(unix: number) {
             t('users.nowhere')
           }}</span>
         </div>
+        <div class="field">
+          <label>{{ t('users.history') }}</label>
+          <ul v-if="history.length" class="links">
+            <li v-for="d in history" :key="d.id">
+              <span class="mono muted">{{
+                new Date(d.createdAt * 1000).toLocaleDateString(locale)
+              }}</span>
+              <span>{{
+                te('notices.kinds.' + d.kind + '.name')
+                  ? t('notices.kinds.' + d.kind + '.name')
+                  : t('log.kinds.' + d.kind)
+              }}</span>
+              <Tag :value="t('log.states.' + d.status)" severity="secondary" />
+              <span class="muted">{{ d.channelName }}</span>
+            </li>
+          </ul>
+          <span v-else class="muted">{{ t('log.empty') }}</span>
+        </div>
         <div class="end">
+          <Button
+            :label="t('users.message')"
+            icon="pi pi-megaphone"
+            outlined
+            @click="
+              router.push({ name: 'messages', query: { user: open.user.id, name: open.user.name } })
+            "
+          />
           <Button :label="t('channels.testSend')" icon="pi pi-send" @click="test" />
         </div>
       </div>
@@ -314,6 +344,8 @@ p {
 .end {
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 :deep(.dlg) {
   width: min(34rem, calc(100vw - 2rem));
