@@ -1,10 +1,5 @@
 {
   "api": 1,
-  "slug": "notif",
-  "name": "Nexora Notif",
-  "version": "0.1.0",
-  "publisher": "Nexora",
-  "license": "AGPL-3.0",
   "description": {
     "en": "Tells your users about their accounts — expiry and traffic notices, renewals, and your own messages to one user or a group — over Telegram, Bale, SMS, email or any HTTP API, through the first channel that reaches each user.",
     "fa": "به کاربرانتان دربارهٔ حسابشان خبر می‌دهد — انقضا و ترافیک، تمدید، و پیام‌های خودتان به یک کاربر یا گروه — با تلگرام، بله، پیامک، ایمیل یا هر API، از اولین راهی که به کاربر برسد.",
@@ -12,90 +7,6 @@
     "zh": "向用户通知其账户——到期、流量、续期以及您自己的消息——通过 Telegram、Bale、短信、电子邮件或任意 HTTP API，经由第一个能送达的渠道。"
   },
   "docs": "https://github.com/Nexora-VPN/notif",
-  "install": {
-    "docker": {
-      "image": "ghcr.io/nexora-vpn/notif",
-      "compose": "deploy/compose.yml"
-    },
-    "binary": {
-      "linux-amd64": "notif-linux-amd64.tar.gz",
-      "linux-arm64": "notif-linux-arm64.tar.gz"
-    },
-    "options": [
-      {
-        "key": "port",
-        "type": "port",
-        "default": 8097,
-        "label": {
-          "en": "Port",
-          "fa": "پورت",
-          "ru": "Порт",
-          "zh": "端口"
-        }
-      },
-      {
-        "key": "database",
-        "type": "choice",
-        "choices": [
-          "sqlite",
-          "postgres"
-        ],
-        "default": "sqlite",
-        "label": {
-          "en": "Database",
-          "fa": "دیتابیس",
-          "ru": "База данных",
-          "zh": "数据库"
-        }
-      },
-      {
-        "key": "database_dsn",
-        "type": "secret",
-        "required": true,
-        "when": {
-          "database": "postgres"
-        },
-        "label": {
-          "en": "PostgreSQL connection",
-          "fa": "اتصال PostgreSQL",
-          "ru": "Подключение к PostgreSQL",
-          "zh": "PostgreSQL 连接"
-        }
-      },
-      {
-        "key": "admin_username",
-        "type": "string",
-        "default": "admin",
-        "label": {
-          "en": "Admin username",
-          "fa": "نام کاربری ادمین",
-          "ru": "Имя администратора",
-          "zh": "管理员用户名"
-        }
-      },
-      {
-        "key": "admin_password",
-        "type": "secret",
-        "required": true,
-        "label": {
-          "en": "Admin password",
-          "fa": "رمز ادمین",
-          "ru": "Пароль администратора",
-          "zh": "管理员密码"
-        }
-      }
-    ]
-  },
-  "scopes": [
-    {
-      "scope": "users:read",
-      "purpose": "to read the accounts it tells about: their contact details, expiry and traffic"
-    },
-    {
-      "scope": "users:write",
-      "purpose": "to keep in an account's contact card the Telegram, Bale, Soroush Plus and Rubika chats its user links and the ntfy topic the admin turns on, and take them away when the user stops a bot"
-    }
-  ],
   "events": [
     "panel.addon_removed",
     "user.created",
@@ -110,8 +21,98 @@
     "user.deleted",
     "user.bulk"
   ],
-  "webhook": "/nexora/events",
-  "setup": "/nexora/setup",
   "health": "/health",
-  "ui": "/"
+  "install": {
+    "binary": {
+      "linux-amd64": "notif-linux-amd64.tar.gz",
+      "linux-arm64": "notif-linux-arm64.tar.gz"
+    },
+    "docker": {
+      "compose": "deploy/compose.yml",
+      "image": "ghcr.io/nexora-vpn/notif"
+    },
+    "options": [
+      {
+        "default": 8097,
+        "key": "port",
+        "label": {
+          "en": "Port",
+          "fa": "پورت",
+          "ru": "Порт",
+          "zh": "端口"
+        },
+        "type": "port"
+      },
+      {
+        "choices": [
+          "sqlite",
+          "postgres"
+        ],
+        "default": "sqlite",
+        "key": "database",
+        "label": {
+          "en": "Database",
+          "fa": "دیتابیس",
+          "ru": "База данных",
+          "zh": "数据库"
+        },
+        "type": "choice"
+      },
+      {
+        "key": "database_dsn",
+        "label": {
+          "en": "PostgreSQL connection",
+          "fa": "اتصال PostgreSQL",
+          "ru": "Подключение к PostgreSQL",
+          "zh": "PostgreSQL 连接"
+        },
+        "required": true,
+        "type": "secret",
+        "when": {
+          "database": "postgres"
+        }
+      },
+      {
+        "default": "admin",
+        "key": "admin_username",
+        "label": {
+          "en": "Admin username",
+          "fa": "نام کاربری ادمین",
+          "ru": "Имя администратора",
+          "zh": "管理员用户名"
+        },
+        "type": "string"
+      },
+      {
+        "key": "admin_password",
+        "label": {
+          "en": "Admin password",
+          "fa": "رمز ادمین",
+          "ru": "Пароль администратора",
+          "zh": "管理员密码"
+        },
+        "required": true,
+        "type": "secret"
+      }
+    ]
+  },
+  "license": "AGPL-3.0",
+  "name": "Nexora Notif",
+  "publisher": "Nexora",
+  "scopes": [
+    {
+      "purpose": "to read the accounts it tells about: their contact details, expiry and traffic",
+      "scope": "users:read"
+    },
+    {
+      "purpose": "to keep in an account's contact card the Telegram, Bale, Soroush Plus and Rubika chats its user links and the ntfy topic the admin turns on, and take them away when the user stops a bot",
+      "scope": "users:write"
+    }
+  ],
+  "setup": "/nexora/setup",
+  "signature": "PncP+Bqfq8soaWuEaIMpBTl3Mo1L7x2PqE9d2kDDXTopMBLGsHI11NKU+EkE8Qi7YvcsbS6augO82lMGw0dmDw==",
+  "slug": "notif",
+  "ui": "/",
+  "version": "0.1.0",
+  "webhook": "/nexora/events"
 }
