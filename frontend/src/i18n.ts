@@ -473,8 +473,12 @@ const en = {
     keepPath:
       'Keep the path to yourself: Notif answers nothing outside it, so a scanner finds nothing.',
     https: {
-      off: 'HTTPS is off: the password crosses the network in the clear unless a proxy of yours adds TLS. Reinstall with https acme (a domain) or self-signed (an address by IP).',
+      off: 'HTTPS is off: the password crosses the network in the clear unless a proxy of yours adds TLS. Reinstall with https panel (a certificate from the panel), acme (a domain) or self-signed (an address by IP).',
       acme: 'Notif gets the certificate for this domain itself, on port 443 of this server, and renews it; the domain must point here.',
+      panel:
+        'Notif serves this address with the certificate the panel holds for it, fetched from the panel; the panel renews it, and Notif needs no port 443 of its own.',
+      'acme-http':
+        'Notif gets the certificate for this domain itself, the CA checking on port 80 of this server, and renews it; the domain must point here.',
       'self-signed':
         'Notif serves this address with a certificate of its own: the browser warns once, and the traffic is encrypted. Compare the fingerprint with the one the browser shows.',
     },
@@ -1005,8 +1009,12 @@ const fa: Messages = {
     keepPath:
       'این مسیر را پیش خودتان نگه دارید: نوتیف بیرون از آن جوابی نمی‌دهد، پس اسکنر چیزی پیدا نمی‌کند.',
     https: {
-      off: 'HTTPS خاموش است: رمز بی‌رمزنگاری از شبکه می‌گذرد، مگر پراکسی خودتان TLS بگذارد. با https روی acme (دامنه) یا self-signed (آدرس با IP) دوباره نصب کنید.',
+      off: 'HTTPS خاموش است: رمز بی‌رمزنگاری از شبکه می‌گذرد، مگر پراکسی خودتان TLS بگذارد. با https روی panel (گواهی از پنل)، acme (دامنه) یا self-signed (آدرس با IP) دوباره نصب کنید.',
       acme: 'نوتیف گواهی این دامنه را خودش روی پورت ۴۴۳ همین سرور می‌گیرد و تمدید می‌کند؛ دامنه باید به اینجا اشاره کند.',
+      panel:
+        'نوتیف این آدرس را با گواهی‌ای سرویس می‌دهد که پنل برایش نگه می‌دارد و از پنل می‌گیرد؛ پنل تمدیدش می‌کند و نوتیف پورت ۴۴۳ جدا لازم ندارد.',
+      'acme-http':
+        'نوتیف گواهی این دامنه را خودش می‌گیرد و تمدید می‌کند، با بررسی CA روی پورت ۸۰ همین سرور؛ دامنه باید به اینجا اشاره کند.',
       'self-signed':
         'نوتیف این آدرس را با گواهی خودش سرویس می‌دهد: مرورگر یک بار هشدار می‌دهد و ارتباط رمز می‌شود. اثر انگشت را با آنچه مرورگر نشان می‌دهد مقایسه کنید.',
     },
@@ -1537,8 +1545,12 @@ const ru: Messages = {
     adminAt: 'Админка находится по адресу',
     keepPath: 'Держите путь при себе: вне его Notif ничего не отвечает, и сканер ничего не найдёт.',
     https: {
-      off: 'HTTPS выключен: пароль идёт по сети открытым текстом, если ваш прокси не добавляет TLS. Переустановите с https acme (домен) или self-signed (адрес по IP).',
+      off: 'HTTPS выключен: пароль идёт по сети открытым текстом, если ваш прокси не добавляет TLS. Переустановите с https panel (сертификат от панели), acme (домен) или self-signed (адрес по IP).',
       acme: 'Notif сам получает и продлевает сертификат для этого домена на порту 443 этого сервера; домен должен указывать сюда.',
+      panel:
+        'Notif обслуживает этот адрес сертификатом, который панель хранит для него и отдаёт; панель его продлевает, и Notif не нужен свой порт 443.',
+      'acme-http':
+        'Notif сам получает и продлевает сертификат для этого домена, CA проверяет на порту 80 этого сервера; домен должен указывать сюда.',
       'self-signed':
         'Notif обслуживает этот адрес собственным сертификатом: браузер один раз предупредит, трафик шифруется. Сравните отпечаток с тем, что показывает браузер.',
     },
@@ -2061,8 +2073,12 @@ const zh: Messages = {
     adminAt: '管理后台地址：',
     keepPath: '请勿外传此路径：Notif 在路径之外不作任何应答，扫描器什么也找不到。',
     https: {
-      off: 'HTTPS 已关闭：除非您的代理加上 TLS，否则密码以明文在网络中传输。请用 https 的 acme（域名）或 self-signed（IP 地址）重新安装。',
+      off: 'HTTPS 已关闭：除非您的代理加上 TLS，否则密码以明文在网络中传输。请用 https 的 panel（面板证书）、acme（域名）或 self-signed（IP 地址）重新安装。',
       acme: 'Notif 在本服务器的 443 端口自行获取并续期该域名的证书；域名必须指向这里。',
+      panel:
+        'Notif 使用面板为其保管的证书为该地址提供服务，证书从面板获取并由面板续期；Notif 无需自己的 443 端口。',
+      'acme-http':
+        'Notif 自行获取并续期该域名的证书，CA 在本服务器的 80 端口验证；域名必须指向这里。',
       'self-signed':
         'Notif 用自己的证书为该地址提供服务：浏览器会提示一次警告，通信是加密的。请将指纹与浏览器显示的指纹比对。',
     },

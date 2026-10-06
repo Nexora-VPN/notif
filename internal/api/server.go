@@ -127,6 +127,9 @@ func New(gdb *gorm.DB, a *addon.Addon, cfg config.Config, version string, spa fs
 				return web.HostOf(a.PublicURL)
 			},
 			Dir: cfg.DataDir, ACMEDirectory: cfg.ACMEDirectory, ACMEInsecure: cfg.ACMEInsecure,
+			// The panel's certificate (https=panel) comes through the
+			// addon's link to it; HTTP-01 (acme-http) answers on HTTPListen.
+			Panel: a, HTTPListen: cfg.HTTPListen,
 		}
 	}
 	a.OnSetup(s.registered)
@@ -271,6 +274,11 @@ func (s *Server) Handler() http.Handler {
 	// admins, so the root answers like a path nothing serves.
 	return securityHeaders(web.Mount(s.cfg.BasePath, mux))
 }
+
+// selfSigned is whether Notif serves its address with a certificate no CA
+// vouches for — its own self-signed one, or a self-signed one from the
+// panel.
+func (s *Server) selfSigned() bool { return s.tls != nil && s.tls.SelfSigned() }
 
 // ServeHTTPS serves every route over HTTPS on the configured listener,
 // with the certificate the install asked for, until ctx ends. With https

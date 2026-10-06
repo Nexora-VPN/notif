@@ -23,9 +23,9 @@ USER notif
 ENV NEXORA_DATA_DIR=/data
 # With https=acme or self-signed Notif answers TLS here; compose publishes
 # the public address's port to it (the user cannot bind 443 itself).
-ENV NEXORA_HTTPS_LISTEN=:8443
+ENV NEXORA_HTTPS_LISTEN=:8443 NEXORA_HTTP_LISTEN=:8080
 VOLUME /data
-EXPOSE 8097 8443
+EXPOSE 8097 8443 8080
 LABEL org.opencontainers.image.source="https://github.com/Nexora-VPN/notif" \
       org.opencontainers.image.title="Nexora Notif" \
       org.opencontainers.image.licenses="AGPL-3.0-only"

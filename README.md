@@ -37,8 +37,9 @@ sh install.sh --method docker --opt port=8097 --opt admin_password=… \
 ```
 
 Everything is served under the install's admin path (`base_path`, drawn at
-random when none is given); `public_url` and `https` (`acme`, `self-signed`
-for an address by IP, or `off`) give it its own HTTPS, and the **Set-up**
+random when none is given); `public_url` and `https` (`panel`, the default: a
+certificate from the panel, renewed by it, no port 443 needed; `acme` or
+`acme-http`; `self-signed` for an address by IP; or `off`) give it its own HTTPS, and the **Set-up**
 page walks through the rest.
 
 `--method script` installs the binary under systemd instead of Docker, as

@@ -77,7 +77,7 @@ func (s *Server) handleSetup(w http.ResponseWriter, _ *http.Request, a model.Adm
 	if addr.PublicURL != "" {
 		v.AdminURL = addr.PublicURL + s.cfg.BasePath + "/"
 	}
-	if s.tls != nil && s.tls.Mode == web.HTTPSSelfSigned {
+	if s.selfSigned() {
 		v.Fingerprint = s.tls.Fingerprint()
 	}
 	// The install's password stays in its .env in the clear: the step is
@@ -146,7 +146,7 @@ func (s *Server) handleSetupAddress(w http.ResponseWriter, r *http.Request, _ mo
 		return
 	}
 	target := addr.PublicURL + s.cfg.BasePath + whoAmIPath
-	if err := web.CheckAddress(r.Context(), target, id, s.cfg.HTTPS == web.HTTPSSelfSigned); err != nil {
+	if err := web.CheckAddress(r.Context(), target, id, s.selfSigned()); err != nil {
 		out["error"] = err.Error()
 	} else {
 		out["reachable"] = true

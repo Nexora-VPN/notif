@@ -16,9 +16,12 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "${NEXORA_OPT_PORT:-8097}:${NEXORA_OPT_PORT:-8097}"
-      # Notif's own HTTPS (https=acme or self-signed): install.sh publishes
+      # Notif's own HTTPS (https=panel, acme, acme-http or self-signed): install.sh publishes
       # the public address's port to it (443:8443 for acme), and otherwise
       # a loopback port nothing uses.
       - "${NEXORA_HTTPS_PUBLISH:-127.0.0.1::8443}"
+      # The CA's HTTP-01 check (https=acme-http): port 80, else a loopback
+      # port nothing uses.
+      - "${NEXORA_HTTP_PUBLISH:-127.0.0.1::8080}"
     volumes:
       - ./data:/data

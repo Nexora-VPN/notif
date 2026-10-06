@@ -156,21 +156,30 @@ if [ "$FRESH" = 1 ] && ! grep -q '^NEXORA_OPT_BASE_PATH=' "${DIR}/.env"; then
 fi
 
 # Notif's own HTTPS answers on the public address's port: 443 for acme,
-# whatever the CA's check needs, and for self-signed the port the address
-# names (443 when it names none). Compose publishes it only then.
+# whatever the CA's check needs, and for panel, acme-http and self-signed
+# the port the address names (443 when it names none) — on the panel's own
+# server, give the address a port of its own. acme-http also answers the
+# CA on port 80. Compose publishes them only then, so a host whose 443 is
+# taken (a node, a proxy) starts Notif without.
 HTTPS_MODE="$(getenv NEXORA_OPT_HTTPS)"
 HTTPS_PORT=443
-if [ "$HTTPS_MODE" = self-signed ]; then
-	p="$(getenv NEXORA_OPT_PUBLIC_URL | sed -n 's#^https://[^/]*:\([0-9][0-9]*\)/\{0,1\}$#\1#p')"
+case "$HTTPS_MODE" in
+panel | acme-http | self-signed)
+	p="$(getenv NEXORA_OPT_PUBLIC_URL | sed -n 's#^https://[^/]*:\([0-9][0-9]*\)\(/.*\)\{0,1\}$#\1#p')"
 	[ -z "$p" ] || HTTPS_PORT="$p"
 	[ "$HTTPS_PORT" != "$(getenv NEXORA_OPT_PORT)" ] || die "the public address's port ${HTTPS_PORT} is Notif's own port; give the public address another"
-fi
+	;;
+esac
 case "$HTTPS_MODE" in
-acme | self-signed)
+panel | acme | acme-http | self-signed)
 	setenv NEXORA_HTTPS_PUBLISH "${HTTPS_PORT}:8443"
 	[ "$METHOD" != script ] || setenv NEXORA_HTTPS_LISTEN ":${HTTPS_PORT}"
 	;;
 *) setenv NEXORA_HTTPS_PUBLISH "127.0.0.1::8443" ;;
+esac
+case "$HTTPS_MODE" in
+acme-http) setenv NEXORA_HTTP_PUBLISH "80:8080" ;;
+*) setenv NEXORA_HTTP_PUBLISH "127.0.0.1::8080" ;;
 esac
 
 case "$METHOD" in

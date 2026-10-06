@@ -34,13 +34,17 @@ type Config struct {
 	// port; the base path is added to it): the install's `public_url`,
 	// carried into the settings when it changes (internal/api, setup.go).
 	PublicURL string
-	// HTTPS is how Notif serves that address itself (web.HTTPSModes): off,
-	// acme — a certificate from an ACME CA for its domain — or self-signed,
-	// for an address by IP. It listens on HTTPSListen (":443"; the image
-	// listens on ":8443" and compose publishes the address's port to it).
-	// ACMEDirectory and ACMEInsecure point a walk at a test CA.
+	// HTTPS is how Notif serves that address itself (web.HTTPSModes): off;
+	// panel — the certificate the panel holds for Notif, fetched from it;
+	// acme — a certificate from an ACME CA for its domain, acme-http
+	// answering the CA on port 80 (HTTPListen) as well; or self-signed, for
+	// an address by IP. It listens on HTTPSListen (":443"; the image listens
+	// on ":8443" and compose publishes the address's port to it, and
+	// ":8080" for HTTP-01). ACMEDirectory and ACMEInsecure point a walk at a
+	// test CA.
 	HTTPS         string
 	HTTPSListen   string
+	HTTPListen    string
 	ACMEDirectory string
 	ACMEInsecure  bool
 	// Driver is sqlite or postgres. For SQLite, DSN is the file in DataDir;
@@ -69,6 +73,7 @@ func Load() (Config, error) {
 		PublicURL:     strings.TrimRight(strings.TrimSpace(addon.Option("public_url")), "/"),
 		HTTPS:         strings.ToLower(option("https", web.HTTPSOff)),
 		HTTPSListen:   env("NEXORA_HTTPS_LISTEN", ":443"),
+		HTTPListen:    env("NEXORA_HTTP_LISTEN", ":80"),
 		ACMEDirectory: os.Getenv("NEXORA_ACME_DIRECTORY"),
 		ACMEInsecure:  os.Getenv("NEXORA_ACME_INSECURE") == "1",
 		DataDir:       env("NEXORA_DATA_DIR", "data"),

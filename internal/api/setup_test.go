@@ -87,6 +87,7 @@ func TestTheSetUpChecklist(t *testing.T) {
 	ours := httptest.NewTLSServer(s.Handler())
 	defer ours.Close()
 	s.cfg.HTTPS = web.HTTPSSelfSigned
+	s.tls = &web.TLS{Mode: web.HTTPSSelfSigned, Dir: t.TempDir()}
 	w := call(t, h, "PUT", "/q7w2/api/setup/address", `{"publicUrl":"`+ours.URL+`","check":true}`, cookie)
 	var res struct {
 		Reachable bool   `json:"reachable"`

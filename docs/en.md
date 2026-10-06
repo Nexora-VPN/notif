@@ -44,8 +44,13 @@ root answers nothing, so a scanner finds nothing, and the install prints
 the address: sign in at `http://<host>:8097/<path>/` with the first admin.
 
 The install also asks the **public address** you open Notif at (scheme, host
-and port; the path goes after it) and **HTTPS**: `acme` gets a free
-certificate for its domain on port 443 of this server and renews it;
+and port; the path goes after it) and **HTTPS**: `panel`, the default,
+serves it with the certificate chosen at the install from the panel's own,
+which the panel renews and Notif fetches — no port 443 of its own, so Notif
+shares a server with the panel (give the address a port of its own there);
+`acme` gets a free
+certificate for its domain on port 443 of this server and renews it, and
+`acme-http` the same with the CA asking on port 80;
 `self-signed` makes one of Notif's own for an address by IP, which the
 browser warns about once — compare the fingerprint **Set-up** shows; `off`
 leaves it to a proxy of yours. The **Set-up** page then goes step by step:
