@@ -7,6 +7,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
+import SecretInput from '../components/SecretInput.vue'
 import InputNumber from 'primevue/inputnumber'
 import Textarea from 'primevue/textarea'
 import Select from 'primevue/select'
@@ -116,10 +117,14 @@ function startEdit(c: Channel) {
     perMinute: c.perMinute,
     config: { ...c.config },
   }
-  // A choice added since the channel was saved shows the default it has.
-  for (const f of kind.value?.fields ?? [])
+  for (const f of kind.value?.fields ?? []) {
+    // A choice added since the channel was saved shows the default it has.
     if (f.choices?.length && form.value.config[f.key] === undefined && f.default)
       form.value.config[f.key] = f.default
+    // A saved secret comes as a mask: left empty, it is kept (the mask
+    // shows as the placeholder), and nothing typed lands after it.
+    if (f.secret) form.value.config[f.key] = ''
+  }
   open.value = true
 }
 
@@ -130,7 +135,7 @@ function clearSecret(key: string) {
 }
 function keepSecret(key: string) {
   clears.value = clears.value.filter((k) => k !== key)
-  if (editing.value) form.value.config[key] = editing.value.config[key] ?? ''
+  form.value.config[key] = ''
 }
 
 async function save() {
@@ -361,6 +366,15 @@ const variables =
             class="mono"
             dir="ltr"
             auto-resize
+          />
+          <SecretInput
+            v-else-if="f.secret"
+            v-model="form.config[f.key]"
+            :input-id="'f-' + f.key"
+            :placeholder="
+              editing?.config[f.key] && !clears.includes(f.key) ? editing.config[f.key] : ''
+            "
+            mono
           />
           <InputText
             v-else

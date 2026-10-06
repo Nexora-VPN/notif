@@ -120,10 +120,10 @@
       },
       {
         "help": {
-          "en": "Where you open Notif, scheme, host and port only, e.g. https://notif.example.com or https://203.0.113.9:8443; the admin path goes after it. Can be set later in Notif.",
-          "fa": "آدرسی که نوتیف را با آن باز می‌کنید، فقط پروتکل، میزبان و پورت؛ مسیر ادمین بعدش می‌آید. بعداً هم می‌شود تنظیمش کرد.",
-          "ru": "Адрес, по которому вы открываете Notif: только схема, хост и порт; путь админки идёт после. Можно задать позже.",
-          "zh": "您打开 Notif 的地址，只含协议、主机和端口，例如 https://notif.example.com；管理路径接在其后。也可稍后设置。"
+          "en": "Where you open Notif, scheme, host and port only, e.g. https://notif.example.com:8097; the admin path goes after it. With HTTPS on it is needed now and names Notif's port (none means 443).",
+          "fa": "آدرسی که نوتیف را با آن باز می‌کنید، فقط پروتکل، میزبان و پورت. با HTTPS روشن همین حالا لازم است و پورت نوتیف را دارد (بدون پورت یعنی ۴۴۳).",
+          "ru": "Адрес, по которому вы открываете Notif: только схема, хост и порт. С HTTPS он нужен сразу и называет порт Notif (без порта — 443).",
+          "zh": "您打开 Notif 的地址，只含协议、主机和端口，例如 https://notif.example.com:8097。启用 HTTPS 时现在就需要，并包含 Notif 的端口（不写即 443）。"
         },
         "key": "public_url",
         "label": {
@@ -193,7 +193,7 @@
     }
   ],
   "setup": "/nexora/setup",
-  "signature": "D1ZODg0lLJbg5squj0n0mHvQSnPS6j82gUbqbS5hTBfHP3o6Qs6IYdwJ7wesR5gC74dEK/GkxoymgZ5ptl4KBg==",
+  "signature": "ahqnnWnXTYXRvv8ky3PRwP0GePU4wjbz7LQIrGdEdqo7H5uIz67OTyNdm3c7OXRW20JHr2moXxSsjJ3tl7K2CA==",
   "slug": "notif",
   "ui": "/",
   "version": "0.3.0",

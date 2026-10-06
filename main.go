@@ -124,6 +124,9 @@ func run() error {
 		if err := admins.ResetPassword(gdb, username, cfg.AdminPassword); err != nil {
 			return fmt.Errorf("the admin of the new install: %w", err)
 		}
+		if err := a.NewInstallApplied(); err != nil {
+			return fmt.Errorf("the admin of the new install: %w", err)
+		}
 		log.Printf("a new install over kept data: %q has the install's password", username)
 	} else if made, err := admins.EnsureFirst(gdb, cfg.AdminUsername, cfg.AdminPassword); err != nil {
 		return fmt.Errorf("the first admin: %w", err)

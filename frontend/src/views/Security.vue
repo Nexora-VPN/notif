@@ -2,7 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'primevue/usetoast'
-import Password from 'primevue/password'
+import SecretInput from '../components/SecretInput.vue'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import QrcodeVue from 'qrcode.vue'
@@ -86,25 +86,11 @@ function disable() {
       <h3>{{ t('security.password') }}</h3>
       <div class="field">
         <label for="cur">{{ t('security.current') }}</label>
-        <Password
-          v-model="current"
-          input-id="cur"
-          :feedback="false"
-          toggle-mask
-          autocomplete="current-password"
-          fluid
-        />
+        <SecretInput v-model="current" input-id="cur" autocomplete="current-password" own />
       </div>
       <div class="field">
         <label for="new">{{ t('security.new') }}</label>
-        <Password
-          v-model="next"
-          input-id="new"
-          :feedback="false"
-          toggle-mask
-          autocomplete="new-password"
-          fluid
-        />
+        <SecretInput v-model="next" input-id="new" autocomplete="new-password" own />
         <small class="muted">{{ t('security.newHint') }}</small>
       </div>
       <div>
@@ -152,12 +138,11 @@ function disable() {
         </form>
       </template>
       <form v-else class="row" @submit.prevent="disable">
-        <Password
+        <SecretInput
           v-model="offPassword"
-          :feedback="false"
           :placeholder="t('security.disablePassword')"
           autocomplete="current-password"
-          toggle-mask
+          own
         />
         <Button
           type="submit"

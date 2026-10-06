@@ -34,9 +34,9 @@ sh install.sh --method docker --opt port=8097 --opt admin_password=… \
 `--method script` runs the binary under systemd instead of Docker. The same
 command updates in place; `--uninstall [--purge]` removes it. Removed with
 its data kept and installed again from the panel (a new install, a new claim
-code), Notif drops the registration it kept, registers anew and sets its
-admin's password to the new install's answer; an update or a restart keeps
-both. Once Notif answers its health check the panel registers it and asks
+code), Notif drops the registration it kept, registers anew, sets its
+admin's password to the new install's answer, turns its second factor off
+and signs it out everywhere; an update or a restart keeps both. Once Notif answers its health check the panel registers it and asks
 you to approve its permissions: reading accounts, and writing the messenger
 links into their contact cards.
 

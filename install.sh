@@ -114,7 +114,13 @@ FRESH=1
 
 mkdir -p "${DIR}/data"
 chmod 700 "${DIR}"
-echo "$METHOD" >"${DIR}/.method"
+
+# The answers go to a copy of the .env, which takes its place only once
+# the checks below pass: a command refused leaves the install as it was.
+ENVF="${DIR}/.env.new"
+rm -f "$ENVF" "${ENVF}.tmp"
+trap 'rm -f "${DIR}/.env.new" "${DIR}/.env.new.tmp"' EXIT
+[ ! -f "${DIR}/.env" ] || cp -p "${DIR}/.env" "$ENVF"
 
 # envquote VALUE: the value as both readers of the .env take it literally —
 # systemd's EnvironmentFile and docker compose's env_file. Single quotes are
@@ -135,12 +141,12 @@ envquote() {
 
 # setenv KEY VALUE: replace or add one line of the .env file.
 setenv() {
-	touch "${DIR}/.env"
-	chmod 600 "${DIR}/.env"
-	grep -v "^$1=" "${DIR}/.env" >"${DIR}/.env.tmp" || true
-	printf '%s=%s\n' "$1" "$(envquote "$2")" >>"${DIR}/.env.tmp"
-	mv "${DIR}/.env.tmp" "${DIR}/.env"
-	chmod 600 "${DIR}/.env" # the mv carries the temporary file's mode, not the 600 above
+	touch "$ENVF"
+	chmod 600 "$ENVF"
+	grep -v "^$1=" "$ENVF" >"${ENVF}.tmp" || true
+	printf '%s=%s\n' "$1" "$(envquote "$2")" >>"${ENVF}.tmp"
+	mv "${ENVF}.tmp" "$ENVF"
+	chmod 600 "$ENVF" # the mv carries the temporary file's mode, not the 600 above
 }
 
 printf '%s' "$OPTS" | while IFS= read -r kv; do
@@ -154,23 +160,23 @@ setenv NEXORA_ADDON_VERSION "${VERSION#v}"
 
 # unsetenv KEY: drop a line of the .env file.
 unsetenv() {
-	[ -f "${DIR}/.env" ] || return 0
-	grep -v "^$1=" "${DIR}/.env" >"${DIR}/.env.tmp" || true
-	mv "${DIR}/.env.tmp" "${DIR}/.env"
-	chmod 600 "${DIR}/.env"
+	[ -f "$ENVF" ] || return 0
+	grep -v "^$1=" "$ENVF" >"${ENVF}.tmp" || true
+	mv "${ENVF}.tmp" "$ENVF"
+	chmod 600 "$ENVF"
 }
 
 # getenv KEY: a value of the .env, its quotes taken off (setenv's quoting
 # of a value with no quote in it).
 getenv() {
-	sed -n "s/^$1=//p" "${DIR}/.env" 2>/dev/null | tail -n 1 | sed -e "s/^'\(.*\)'\$/\1/" -e 's/^"\(.*\)"$/\1/'
+	sed -n "s/^$1=//p" "$ENVF" 2>/dev/null | tail -n 1 | sed -e "s/^'\(.*\)'\$/\1/" -e 's/^"\(.*\)"$/\1/'
 }
 
 # The base path everything is served under: a first install the command
 # gives none draws one, so Notif is not where a scanner looks; an update
 # keeps what the install has — none, for one from before base paths, is
 # the root.
-if [ "$FRESH" = 1 ] && ! grep -q '^NEXORA_OPT_BASE_PATH=' "${DIR}/.env"; then
+if [ "$FRESH" = 1 ] && ! grep -q '^NEXORA_OPT_BASE_PATH=' "$ENVF"; then
 	setenv NEXORA_OPT_BASE_PATH "$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 12)"
 fi
 
@@ -185,14 +191,16 @@ PORT_NOW="$(getenv NEXORA_OPT_PORT)"
 PORT_NOW="${PORT_NOW:-8097}"
 TWO_PORTS=0
 if [ -z "$CLAIM_CODE" ] && [ "$FRESH" = 0 ]; then
-	! grep -q '^NEXORA_HTTPS_LISTEN=' "${DIR}/.env" || TWO_PORTS=1
+	[ -z "$(getenv NEXORA_HTTPS_LISTEN)" ] || TWO_PORTS=1
 	case "$(getenv NEXORA_HTTPS_PUBLISH)" in "" | 127.0.0.1:*) ;; *) TWO_PORTS=1 ;; esac
 fi
 if [ "$TWO_PORTS" = 1 ]; then
-	# The image no longer sets the listener that install published.
-	[ "$METHOD" != docker ] || grep -q '^NEXORA_HTTPS_LISTEN=' "${DIR}/.env" || setenv NEXORA_HTTPS_LISTEN ":8443"
+	# Named in .env: the compose file sets the listener from it, empty
+	# (one port) when .env names none, whatever the image's :8443.
+	[ "$METHOD" != docker ] || [ -n "$(getenv NEXORA_HTTPS_LISTEN)" ] || setenv NEXORA_HTTPS_LISTEN ":8443"
 else
-	unsetenv NEXORA_HTTPS_LISTEN
+	# Empty, not absent: the image's own :8443 is for an install from before.
+	setenv NEXORA_HTTPS_LISTEN ""
 	unsetenv NEXORA_HTTPS_PUBLISH
 	case "$HTTPS_MODE" in
 	panel | acme | acme-http | self-signed)
@@ -202,6 +210,9 @@ else
 		[ -n "$p" ] || p=443
 		[ "$p" = "$PORT_NOW" ] || die "Notif serves HTTPS on its port ${PORT_NOW}: the public address must name it (https://<host>:${PORT_NOW}), or give Notif port ${p}"
 		[ "$HTTPS_MODE" != acme ] || [ "$PORT_NOW" = 443 ] || die "acme answers the CA on port 443: give Notif port 443, or choose acme-http or panel"
+		# acme-http holds port 80 — 8080 in the container, where Notif listens too.
+		[ "$HTTPS_MODE" != acme-http ] || [ "$PORT_NOW" != 80 ] || die "acme-http answers the CA on port 80: give Notif another port"
+		[ "$HTTPS_MODE" != acme-http ] || [ "$METHOD" != docker ] || [ "$PORT_NOW" != 8080 ] || die "acme-http answers the CA on port 8080 inside the container: give Notif another port"
 		;;
 	esac
 fi
@@ -209,6 +220,11 @@ case "$HTTPS_MODE" in
 acme-http) setenv NEXORA_HTTP_PUBLISH "80:8080" ;;
 *) setenv NEXORA_HTTP_PUBLISH "127.0.0.1::8080" ;;
 esac
+
+# Checked: the answers are the install's.
+mv "$ENVF" "${DIR}/.env"
+ENVF="${DIR}/.env"
+echo "$METHOD" >"${DIR}/.method"
 
 case "$METHOD" in
 script)

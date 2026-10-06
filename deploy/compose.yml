@@ -9,6 +9,11 @@ services:
     # Time for the sends in hand to finish on a stop (Notif waits up to 45s).
     stop_grace_period: 60s
     env_file: .env
+    # One port with HTTPS on: no listener of its own for it, whatever the
+    # image says (its :8443 is for an install from before, whose compose
+    # file has no such line); install.sh sets :8443 for one it updates.
+    environment:
+      NEXORA_HTTPS_LISTEN: "${NEXORA_HTTPS_LISTEN:-}"
     # The port may be below 1024 — acme serves on 443 — and the image's
     # user is not root.
     sysctls:

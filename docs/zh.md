@@ -15,7 +15,7 @@ sh install.sh --method docker --opt port=8097 --opt admin_password=… \
   --panel-url https://panel.example --claim-code …
 ```
 
-`--method script` 用 systemd 代替 Docker 运行程序。同一条命令可就地更新；`--uninstall [--purge]` 用于卸载。保留数据卸载后又从面板重新安装（新的安装、新的认领码）时，Notif 会丢弃之前保留的注册，重新注册，并把管理员密码设为新安装给出的密码；更新和重启则两者都保留。Notif 通过健康检查后，面板会注册它并请您批准其权限：读取账户，以及把即时通讯的关联写入账户的联系信息。
+`--method script` 用 systemd 代替 Docker 运行程序。同一条命令可就地更新；`--uninstall [--purge]` 用于卸载。保留数据卸载后又从面板重新安装（新的安装、新的认领码）时，Notif 会丢弃之前保留的注册，重新注册，把管理员密码设为新安装给出的密码，关闭其两步登录，并结束其所有会话；更新和重启则两者都保留。Notif 通过健康检查后，面板会注册它并请您批准其权限：读取账户，以及把即时通讯的关联写入账户的联系信息。
 
 Notif 提供的一切——管理后台、其 API、面板的请求——都在安装时询问的**管理路径**（`base_path`）之下：面板会随机生成一个，`install.sh` 在首次安装且未给出路径时也会生成（`base_path=` 把 Notif 放在根路径；更新时保留已有的值）。根路径不作任何应答，扫描器什么也找不到：用首个管理员在公开地址加路径处登录，即 `https://<host>:<port>/<path>/`（`https: off` 时为 `http://<host>:8097/<path>/`）。
 

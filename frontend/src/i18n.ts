@@ -75,6 +75,8 @@ const en = {
     disabled: 'Two-factor sign-in is off.',
   },
   common: {
+    showPassword: 'Show',
+    hidePassword: 'Hide',
     error: 'Error',
     cancel: 'Cancel',
     never: 'never',
@@ -611,6 +613,8 @@ const fa: Messages = {
     disabled: 'ورود دومرحله‌ای خاموش شد.',
   },
   common: {
+    showPassword: 'نمایش',
+    hidePassword: 'پنهان کردن',
     error: 'خطا',
     cancel: 'انصراف',
     never: 'هرگز',
@@ -1146,6 +1150,8 @@ const ru: Messages = {
     disabled: 'Двухфакторный вход выключен.',
   },
   common: {
+    showPassword: 'Показать',
+    hidePassword: 'Скрыть',
     error: 'Ошибка',
     cancel: 'Отмена',
     never: 'никогда',
@@ -1683,6 +1689,8 @@ const zh: Messages = {
     disabled: '两步验证登录已关闭。',
   },
   common: {
+    showPassword: '显示',
+    hidePassword: '隐藏',
     error: '错误',
     cancel: '取消',
     never: '从未',

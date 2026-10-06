@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import InputText from 'primevue/inputtext'
-import Password from 'primevue/password'
+import SecretInput from '../components/SecretInput.vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Select from 'primevue/select'
@@ -79,14 +79,7 @@ function pick(l: Locale) {
         </div>
         <div class="field">
           <label for="p">{{ t('login.password') }}</label>
-          <Password
-            v-model="password"
-            input-id="p"
-            :feedback="false"
-            toggle-mask
-            autocomplete="current-password"
-            fluid
-          />
+          <SecretInput v-model="password" input-id="p" autocomplete="current-password" own />
         </div>
         <Button type="submit" :label="t('login.submit')" :loading="busy" />
       </template>

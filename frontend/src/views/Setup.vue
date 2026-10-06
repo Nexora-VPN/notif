@@ -5,7 +5,7 @@ import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
-import { api, type Setup } from '../api'
+import { api, type Setup, type SetupStep } from '../api'
 
 // Set-up (GN-S7): every step a card, in order, each saying what to do next
 // — the address and its certificate, checked from outside; the admin's own
@@ -25,7 +25,14 @@ const left = computed(() => board.value?.steps.filter((s) => !s.done && !s.optio
 // The address step is listed only while it is wrong (the panel's P11); the
 // fingerprint of a self-signed certificate stays in sight without it, for
 // the panel's consent to be compared with.
-const addressListed = computed(() => !!board.value?.steps.some((s) => s.key === 'address'))
+// Checked here, it stays in sight once right, with what the check found.
+const addressUsed = ref(false)
+const steps = computed<SetupStep[]>(() => {
+  const all = board.value?.steps ?? []
+  if (!addressUsed.value || all.some((s) => s.key === 'address')) return all
+  return [{ key: 'address', done: true, detail: board.value?.publicUrl }, ...all]
+})
+const addressListed = computed(() => steps.value.some((s) => s.key === 'address'))
 
 async function load() {
   try {
@@ -39,6 +46,7 @@ async function load() {
 async function check() {
   checking.value = true
   checked.value = undefined
+  addressUsed.value = true
   try {
     checked.value = await api.setupAddress(address.value.trim(), true)
     await load()
@@ -75,7 +83,7 @@ onMounted(load)
       </p>
 
       <article
-        v-for="(s, i) in board.steps"
+        v-for="(s, i) in steps"
         :key="s.key"
         class="card stack step"
         :class="{ done: s.done }"

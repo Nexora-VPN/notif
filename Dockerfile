@@ -21,9 +21,11 @@ RUN apk add --no-cache ca-certificates tzdata && adduser -D -H -u 10001 notif &&
 COPY --from=build /out/notif /usr/local/bin/notif
 USER notif
 ENV NEXORA_DATA_DIR=/data
-# With HTTPS on, Notif's port serves it (one address); acme-http answers
-# the CA on :8080, which compose publishes from port 80. An install from
-# before one port keeps HTTPS on :8443 (install.sh sets it in its .env).
+# With HTTPS on, Notif's port serves it (one address; the compose file
+# and install.sh set NEXORA_HTTPS_LISTEN empty); acme-http answers the CA
+# on :8080, which compose publishes from port 80. An install from before
+# one port, updated with its old compose file, keeps HTTPS on :8443.
+ENV NEXORA_HTTPS_LISTEN=:8443
 ENV NEXORA_HTTP_LISTEN=:8080
 VOLUME /data
 EXPOSE 8097 8443 8080

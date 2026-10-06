@@ -37,8 +37,9 @@ sh install.sh --method docker --opt port=8097 --opt admin_password=… \
 ```
 
 Everything is served under the install's admin path (`base_path`, drawn at
-random when none is given); `public_url` and `https` (`panel`, the default: a
-certificate from the panel, renewed by it, on any port; `acme`, on port 443,
+random when none is given); `public_url` and `https` (`panel`, the default in the panel's form: a
+certificate from the panel, renewed by it, on any port — by hand with no
+`https` answer it is `off`; `acme`, on port 443,
 or `acme-http`, on any port with the CA asking on port 80; `self-signed` for
 an address by IP, which the panel trusts once you approve its fingerprint;
 or `off`, plain HTTP for a proxy of yours) give it its own HTTPS — on the

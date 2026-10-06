@@ -96,9 +96,10 @@ func (s *Server) handleSetup(w http.ResponseWriter, _ *http.Request, a model.Adm
 			backups.Done, backups.Detail = true, strconv.FormatInt(at.Unix(), 10)
 		}
 	}
-	// The address is done once there is one served over HTTPS — Notif's
-	// own, or a proxy's in front of an install with https off.
-	addressDone := addr.PublicURL != "" && (s.cfg.HTTPS != "off" || strings.HasPrefix(addr.PublicURL, "https://"))
+	// The address is done once it is an https one — Notif's own port, which
+	// speaks only TLS with HTTPS on, or a proxy's in front of an install
+	// with https off.
+	addressDone := strings.HasPrefix(addr.PublicURL, "https://")
 	steps := []setupStep{
 		{Key: "address", Done: addressDone, Detail: addr.PublicURL},
 		{Key: "password", Done: ownPassword},
