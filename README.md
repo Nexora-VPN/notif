@@ -38,9 +38,13 @@ sh install.sh --method docker --opt port=8097 --opt admin_password=… \
 
 Everything is served under the install's admin path (`base_path`, drawn at
 random when none is given); `public_url` and `https` (`panel`, the default: a
-certificate from the panel, renewed by it, no port 443 needed; `acme` or
-`acme-http`; `self-signed` for an address by IP; or `off`) give it its own HTTPS, and the **Set-up**
-page walks through the rest.
+certificate from the panel, renewed by it, on any port; `acme`, on port 443,
+or `acme-http`, on any port with the CA asking on port 80; `self-signed` for
+an address by IP, which the panel trusts once you approve its fingerprint;
+or `off`, plain HTTP for a proxy of yours) give it its own HTTPS — on the
+install's `port` alone, which the public address names (443 when it names
+none). The admin password takes 10 characters to 72 bytes. The **Set-up**
+page lists what is left of Notif's own work.
 
 `--method script` installs the binary under systemd instead of Docker, as
 its own user with only its data directory writable, after checking the

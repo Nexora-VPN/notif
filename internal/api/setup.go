@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/nexora-vpn/addon-kit/auth"
@@ -95,13 +96,27 @@ func (s *Server) handleSetup(w http.ResponseWriter, _ *http.Request, a model.Adm
 			backups.Done, backups.Detail = true, strconv.FormatInt(at.Unix(), 10)
 		}
 	}
-	v.Steps = []setupStep{
-		{Key: "address", Done: addr.PublicURL != "", Detail: addr.PublicURL},
+	// The address is done once there is one served over HTTPS — Notif's
+	// own, or a proxy's in front of an install with https off.
+	addressDone := addr.PublicURL != "" && (s.cfg.HTTPS != "off" || strings.HasPrefix(addr.PublicURL, "https://"))
+	steps := []setupStep{
+		{Key: "address", Done: addressDone, Detail: addr.PublicURL},
 		{Key: "password", Done: ownPassword},
 		{Key: "twofactor", Done: a.TOTPEnabled()},
 		{Key: "channel", Done: channels > 0, Detail: strconv.FormatInt(channels, 10)},
 		panelStep,
 		backups,
+	}
+	// What the panel's install did — the address and its HTTPS, the
+	// registration, the install's password — is listed only while it is
+	// wrong (docs/phase-h.md P11 in the panel's repository): the list is
+	// Notif's own work.
+	v.Steps = []setupStep{}
+	for _, st := range steps {
+		if st.Done && (st.Key == "address" || st.Key == "panel" || st.Key == "password") {
+			continue
+		}
+		v.Steps = append(v.Steps, st)
 	}
 	v.Done = true
 	for _, st := range v.Steps {

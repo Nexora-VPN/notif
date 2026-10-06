@@ -21,9 +21,10 @@ RUN apk add --no-cache ca-certificates tzdata && adduser -D -H -u 10001 notif &&
 COPY --from=build /out/notif /usr/local/bin/notif
 USER notif
 ENV NEXORA_DATA_DIR=/data
-# With https=acme or self-signed Notif answers TLS here; compose publishes
-# the public address's port to it (the user cannot bind 443 itself).
-ENV NEXORA_HTTPS_LISTEN=:8443 NEXORA_HTTP_LISTEN=:8080
+# With HTTPS on, Notif's port serves it (one address); acme-http answers
+# the CA on :8080, which compose publishes from port 80. An install from
+# before one port keeps HTTPS on :8443 (install.sh sets it in its .env).
+ENV NEXORA_HTTP_LISTEN=:8080
 VOLUME /data
 EXPOSE 8097 8443 8080
 LABEL org.opencontainers.image.source="https://github.com/Nexora-VPN/notif" \

@@ -83,6 +83,17 @@ if [ "$UNINSTALL" = 1 ]; then
 	exit 0
 fi
 
+# The admin's password, when the command gives one, held to the rule
+# Notif's sign-in holds it to — 10 characters to 72 bytes — here, before
+# anything is installed: Notif would refuse it at its start and not start.
+pw="$(printf '%s' "$OPTS" | sed -n 's/^admin_password=//p' | tail -n 1)"
+if [ -n "$pw" ]; then
+	n=$(printf '%s' "$pw" | LC_ALL=C tr -d '\200-\277' | wc -c)
+	[ $((n)) -ge 10 ] || die "the admin password is shorter than 10 characters"
+	n=$(printf '%s' "$pw" | wc -c)
+	[ $((n)) -le 72 ] || die "the admin password is longer than 72 bytes (about 36 Persian or Russian letters)"
+fi
+
 # An update keeps the method the addon was installed with.
 if [ -z "$METHOD" ] && [ -f "${DIR}/.method" ]; then
 	METHOD="$(cat "${DIR}/.method")"
@@ -141,6 +152,14 @@ done
 [ -z "$CLAIM_CODE" ] || setenv NEXORA_CLAIM_CODE "$CLAIM_CODE"
 setenv NEXORA_ADDON_VERSION "${VERSION#v}"
 
+# unsetenv KEY: drop a line of the .env file.
+unsetenv() {
+	[ -f "${DIR}/.env" ] || return 0
+	grep -v "^$1=" "${DIR}/.env" >"${DIR}/.env.tmp" || true
+	mv "${DIR}/.env.tmp" "${DIR}/.env"
+	chmod 600 "${DIR}/.env"
+}
+
 # getenv KEY: a value of the .env, its quotes taken off (setenv's quoting
 # of a value with no quote in it).
 getenv() {
@@ -155,28 +174,37 @@ if [ "$FRESH" = 1 ] && ! grep -q '^NEXORA_OPT_BASE_PATH=' "${DIR}/.env"; then
 	setenv NEXORA_OPT_BASE_PATH "$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 12)"
 fi
 
-# Notif's own HTTPS answers on the public address's port: 443 for acme,
-# whatever the CA's check needs, and for panel, acme-http and self-signed
-# the port the address names (443 when it names none) — on the panel's own
-# server, give the address a port of its own. acme-http also answers the
-# CA on port 80. Compose publishes them only then, so a host whose 443 is
-# taken (a node, a proxy) starts Notif without.
+# With HTTPS on, Notif's port is its HTTPS port and nothing plain listens
+# (one address, docs/phase-h.md P9 in the panel's repository): the public
+# address names that port (443 when it names none). acme answers the CA on
+# it, so it is 443; acme-http answers the CA on port 80 as well, which
+# compose publishes only then. An update of an install from before keeps
+# its two ports: HTTPS on a listener of its own beside the plain one.
 HTTPS_MODE="$(getenv NEXORA_OPT_HTTPS)"
-HTTPS_PORT=443
-case "$HTTPS_MODE" in
-panel | acme-http | self-signed)
-	p="$(getenv NEXORA_OPT_PUBLIC_URL | sed -n 's#^https://[^/]*:\([0-9][0-9]*\)\(/.*\)\{0,1\}$#\1#p')"
-	[ -z "$p" ] || HTTPS_PORT="$p"
-	[ "$HTTPS_PORT" != "$(getenv NEXORA_OPT_PORT)" ] || die "the public address's port ${HTTPS_PORT} is Notif's own port; give the public address another"
-	;;
-esac
-case "$HTTPS_MODE" in
-panel | acme | acme-http | self-signed)
-	setenv NEXORA_HTTPS_PUBLISH "${HTTPS_PORT}:8443"
-	[ "$METHOD" != script ] || setenv NEXORA_HTTPS_LISTEN ":${HTTPS_PORT}"
-	;;
-*) setenv NEXORA_HTTPS_PUBLISH "127.0.0.1::8443" ;;
-esac
+PORT_NOW="$(getenv NEXORA_OPT_PORT)"
+PORT_NOW="${PORT_NOW:-8097}"
+TWO_PORTS=0
+if [ -z "$CLAIM_CODE" ] && [ "$FRESH" = 0 ]; then
+	! grep -q '^NEXORA_HTTPS_LISTEN=' "${DIR}/.env" || TWO_PORTS=1
+	case "$(getenv NEXORA_HTTPS_PUBLISH)" in "" | 127.0.0.1:*) ;; *) TWO_PORTS=1 ;; esac
+fi
+if [ "$TWO_PORTS" = 1 ]; then
+	# The image no longer sets the listener that install published.
+	[ "$METHOD" != docker ] || grep -q '^NEXORA_HTTPS_LISTEN=' "${DIR}/.env" || setenv NEXORA_HTTPS_LISTEN ":8443"
+else
+	unsetenv NEXORA_HTTPS_LISTEN
+	unsetenv NEXORA_HTTPS_PUBLISH
+	case "$HTTPS_MODE" in
+	panel | acme | acme-http | self-signed)
+		PUBLIC="$(getenv NEXORA_OPT_PUBLIC_URL)"
+		case "$PUBLIC" in https://*) ;; *) die "https ${HTTPS_MODE} serves the public address over HTTPS: it starts with https://" ;; esac
+		p="$(printf '%s' "$PUBLIC" | sed -n 's#^https://[^/]*:\([0-9][0-9]*\)\(/.*\)\{0,1\}$#\1#p')"
+		[ -n "$p" ] || p=443
+		[ "$p" = "$PORT_NOW" ] || die "Notif serves HTTPS on its port ${PORT_NOW}: the public address must name it (https://<host>:${PORT_NOW}), or give Notif port ${p}"
+		[ "$HTTPS_MODE" != acme ] || [ "$PORT_NOW" = 443 ] || die "acme answers the CA on port 443: give Notif port 443, or choose acme-http or panel"
+		;;
+	esac
+fi
 case "$HTTPS_MODE" in
 acme-http) setenv NEXORA_HTTP_PUBLISH "80:8080" ;;
 *) setenv NEXORA_HTTP_PUBLISH "127.0.0.1::8080" ;;
@@ -275,4 +303,9 @@ esac
 echo "installed ${SLUG} ${VERSION} (${METHOD}) in ${DIR}"
 BASE="$(getenv NEXORA_OPT_BASE_PATH | tr -d /)"
 PORT="$(getenv NEXORA_OPT_PORT)"
-echo "the admin: http://<this host>:${PORT:-8097}/${BASE}${BASE:+/ — keep the path to yourself}"
+# With HTTPS on one port, the admin is at the public address.
+ADMIN="http://<this host>:${PORT:-8097}"
+if [ "$TWO_PORTS" = 0 ]; then
+	case "$HTTPS_MODE" in panel | acme | acme-http | self-signed) ADMIN="$(getenv NEXORA_OPT_PUBLIC_URL | sed 's#/*$##')" ;; esac
+fi
+echo "the admin: ${ADMIN}/${BASE}${BASE:+/ — keep the path to yourself}"

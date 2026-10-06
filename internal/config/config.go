@@ -38,10 +38,11 @@ type Config struct {
 	// panel — the certificate the panel holds for Notif, fetched from it;
 	// acme — a certificate from an ACME CA for its domain, acme-http
 	// answering the CA on port 80 (HTTPListen) as well; or self-signed, for
-	// an address by IP. It listens on HTTPSListen (":443"; the image listens
-	// on ":8443" and compose publishes the address's port to it, and
-	// ":8080" for HTTP-01). ACMEDirectory and ACMEInsecure point a walk at a
-	// test CA.
+	// an address by IP. With it on, Notif's one port (Port) serves HTTPS and
+	// nothing plain (docs/phase-h.md P9 in the panel's repository).
+	// HTTPSListen is set only by an install from before that, which keeps
+	// HTTPS on a listener of its own beside the plain one. ACMEDirectory and
+	// ACMEInsecure point a walk at a test CA.
 	HTTPS         string
 	HTTPSListen   string
 	HTTPListen    string
@@ -72,7 +73,7 @@ func Load() (Config, error) {
 		BasePath:      addon.Option("base_path"),
 		PublicURL:     strings.TrimRight(strings.TrimSpace(addon.Option("public_url")), "/"),
 		HTTPS:         strings.ToLower(option("https", web.HTTPSOff)),
-		HTTPSListen:   env("NEXORA_HTTPS_LISTEN", ":443"),
+		HTTPSListen:   os.Getenv("NEXORA_HTTPS_LISTEN"),
 		HTTPListen:    env("NEXORA_HTTP_LISTEN", ":80"),
 		ACMEDirectory: os.Getenv("NEXORA_ACME_DIRECTORY"),
 		ACMEInsecure:  os.Getenv("NEXORA_ACME_INSECURE") == "1",
@@ -118,3 +119,7 @@ func env(key, def string) string {
 	}
 	return def
 }
+
+// OnePort is whether Notif's port serves HTTPS itself, with no plain HTTP
+// beside it: HTTPS on, and no listener of its own from an older install.
+func (c Config) OnePort() bool { return c.HTTPS != "off" && c.HTTPSListen == "" }

@@ -22,8 +22,9 @@ other addons see it too.
 On the panel: **Services → Addons → Browse → Nexora Notif → Install**. The
 panel asks the manifest's questions — the port (8097), the database (SQLite,
 or PostgreSQL with its connection string), the first admin's name and
-password — and installs Notif on its own host or another one over SSH, or
-prints a command to run by hand:
+password (10 characters to 72 bytes, about 36 Persian or Russian letters or
+24 Chinese; `install.sh` refuses another) — and installs Notif on its own
+host or another one over SSH, or prints a command to run by hand:
 
 ```sh
 sh install.sh --method docker --opt port=8097 --opt admin_password=… \
@@ -31,33 +32,48 @@ sh install.sh --method docker --opt port=8097 --opt admin_password=… \
 ```
 
 `--method script` runs the binary under systemd instead of Docker. The same
-command updates in place; `--uninstall [--purge]` removes it. Once Notif
-answers its health check the panel registers it and asks you to approve its
-permissions: reading accounts, and writing the messenger links into their
-contact cards.
+command updates in place; `--uninstall [--purge]` removes it. Removed with
+its data kept and installed again from the panel (a new install, a new claim
+code), Notif drops the registration it kept, registers anew and sets its
+admin's password to the new install's answer; an update or a restart keeps
+both. Once Notif answers its health check the panel registers it and asks
+you to approve its permissions: reading accounts, and writing the messenger
+links into their contact cards.
 
 Everything Notif serves — the admin web, its API, what the panel calls — is
 under the **admin path** the install asks (`base_path`): the panel draws a
 random one, and so does `install.sh` on a first install given none
 (`base_path=` puts Notif at the root; an update keeps what it has). The
-root answers nothing, so a scanner finds nothing, and the install prints
-the address: sign in at `http://<host>:8097/<path>/` with the first admin.
+root answers nothing, so a scanner finds nothing: sign in at the public
+address with the path, `https://<host>:<port>/<path>/` (with `https: off`,
+`http://<host>:8097/<path>/`), with the first admin.
 
 The install also asks the **public address** you open Notif at (scheme, host
-and port; the path goes after it) and **HTTPS**: `panel`, the default,
+and port; the path goes after it) and **HTTPS**. With HTTPS on, Notif serves
+it on the install's port alone, nothing plain beside it, and the public
+address names that port (443 when it names none; `install.sh` refuses
+another); the panel reaches Notif at that address. `panel`, the default,
 serves it with the certificate chosen at the install from the panel's own,
-which the panel renews and Notif fetches — no port 443 of its own, so Notif
-shares a server with the panel (give the address a port of its own there);
-`acme` gets a free
-certificate for its domain on port 443 of this server and renews it, and
-`acme-http` the same with the CA asking on port 80;
-`self-signed` makes one of Notif's own for an address by IP, which the
-browser warns about once — compare the fingerprint **Set-up** shows; `off`
-leaves it to a proxy of yours. The **Set-up** page then goes step by step:
-the address, checked from outside; a password of your own rather than the
-install's, which stays in its `.env` in the clear; two-factor sign-in; the
-first channel; the panel; the backups. A lost password is reset on the
-server: `notif admin reset-password -user admin -pass …`.
+which the panel renews and Notif fetches — any port, so Notif shares a
+server with the panel (give it a port of its own there, such as 8443, and
+the address the same); `acme` gets a free certificate for its domain and
+renews it, answering the CA on its port, which is then 443; `acme-http` the
+same on any port, the CA asking on port 80; `self-signed` makes one of
+Notif's own for an address by IP, which the browser warns about once —
+compare the fingerprint **Set-up** shows with the browser's and with the
+one the panel shows when you approve Notif: approving trusts that
+certificate, and when Notif renews it, about once a year, trust the new one
+under **Certificate** on its row in the panel; `off` serves plain HTTP on
+the port, for a proxy of yours. An install from before keeps its two ports
+when updated.
+
+**Set-up** is a checklist of Notif's own work, not a wizard: two-factor
+sign-in, the first channel, the backups. What the panel's install did shows
+there only when it is wrong: the address (missing, or not over HTTPS), the
+registration with the panel, and a password still the install's, which
+stays in its `.env` in the clear. A self-signed certificate's fingerprint
+stays at the top. A lost password is reset on the server:
+`notif admin reset-password -user admin -pass …`.
 
 ## Channels
 

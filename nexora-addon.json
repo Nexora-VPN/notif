@@ -36,6 +36,12 @@
     "options": [
       {
         "default": 8097,
+        "help": {
+          "en": "Notif listens here. With HTTPS on, this one port serves it and nothing plain: the public address names it (443 for acme).",
+          "fa": "Notif روی این پورت گوش می‌دهد. با HTTPS روشن فقط همین پورت HTTPS می‌دهد و آدرس عمومی همین پورت را دارد (برای acme ۴۴۳).",
+          "ru": "Notif слушает здесь. С HTTPS этот порт отдаёт только его: публичный адрес называет этот порт (443 для acme).",
+          "zh": "Notif 在此端口监听。启用 HTTPS 时只在此端口提供 HTTPS，不提供明文：公开地址需包含此端口（acme 为 443）。"
+        },
         "key": "port",
         "label": {
           "en": "Port",
@@ -110,7 +116,7 @@
           "zh": "管理员密码"
         },
         "required": true,
-        "type": "secret"
+        "type": "password"
       },
       {
         "help": {
@@ -138,10 +144,10 @@
         ],
         "default": "panel",
         "help": {
-          "en": "panel: one of the panel's certificates, renewed by the panel; no port 443 needed, so it shares a server. acme: a free certificate, on port 443 here. acme-http: the same, the CA asking on port 80. self-signed: Notif's own, for an address by IP; the browser warns. off: no HTTPS.",
-          "fa": "panel: گواهی پنل، بی‌نیاز از ۴۴۳. acme: گواهی رایگان روی ۴۴۳. acme-http: بررسی روی ۸۰. self-signed: برای آدرس IP. off: بدون HTTPS.",
-          "ru": "panel: сертификат панели, без 443. acme: бесплатный, на 443. acme-http: проверка на 80. self-signed: для адреса по IP. off: без HTTPS.",
-          "zh": "panel：面板证书，无需 443。acme：443 免费证书。acme-http：80 端口验证。self-signed：IP 地址用。off：无 HTTPS。"
+          "en": "panel: one of the panel's certificates, renewed by the panel, on any port. acme: a free certificate; the port is 443. acme-http: the same on any port, the CA asking on port 80. self-signed: Notif's own; the panel shows it to trust. off: plain HTTP, for a proxy of yours.",
+          "fa": "panel: گواهی پنل، روی هر پورت. acme: گواهی رایگان، پورت ۴۴۳. acme-http: همان روی هر پورت، بررسی روی ۸۰. self-signed: گواهی خودش، پنل برای اعتماد نشانش می‌دهد. off: HTTP ساده، پشت پراکسی.",
+          "ru": "panel: сертификат панели, любой порт. acme: бесплатный, порт 443. acme-http: то же, любой порт, проверка на 80. self-signed: свой, панель покажет его. off: HTTP за вашим прокси.",
+          "zh": "panel：面板证书，任意端口。acme：免费证书，端口 443。acme-http：同上，任意端口，80 端口验证。self-signed：自有证书，面板显示以供信任。off：明文 HTTP，用于您的代理。"
         },
         "key": "https",
         "label": {
@@ -187,7 +193,7 @@
     }
   ],
   "setup": "/nexora/setup",
-  "signature": "KAZ0J/1a1dbgGDmr0VFEP0uQOCb8/wrXCD4dXRIGvHxX3CdqaKwVZhJOpNXBC82BUhViur2jIjQ70cmSvyslAw==",
+  "signature": "D1ZODg0lLJbg5squj0n0mHvQSnPS6j82gUbqbS5hTBfHP3o6Qs6IYdwJ7wesR5gC74dEK/GkxoymgZ5ptl4KBg==",
   "slug": "notif",
   "ui": "/",
   "version": "0.3.0",

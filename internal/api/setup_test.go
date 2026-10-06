@@ -42,7 +42,9 @@ func TestEverythingLivesUnderTheBasePath(t *testing.T) {
 // Notif holds — the address, a password of the admin's own rather than the
 // install's, the second factor, a channel on, the panel's registration —
 // and the address check finds this Notif under its base path, over a
-// self-signed certificate too, and not another program.
+// self-signed certificate too, and not another program. What the panel's
+// install did is listed only while it is wrong (the panel's P11): an
+// address over HTTPS and a password of the admin's own drop out.
 func TestTheSetUpChecklist(t *testing.T) {
 	s, gdb, h := newServerWith(t, func(c *config.Config) {
 		c.BasePath, c.AdminPassword, c.PublicURL = "/q7w2", "correct horse", "https://203.0.113.9:8443"
@@ -66,7 +68,7 @@ func TestTheSetUpChecklist(t *testing.T) {
 	}
 	v := read()
 	st := steps(v)
-	if v.Done || !st["address"].Done || v.AdminURL != "https://203.0.113.9:8443/q7w2/" || st["password"].Done || st["twofactor"].Done || st["channel"].Done || st["panel"].Done || st["panel"].Detail != "TEST-CLAIM" {
+	if _, listed := st["address"]; listed || v.Done || v.AdminURL != "https://203.0.113.9:8443/q7w2/" || st["password"].Done || st["twofactor"].Done || st["channel"].Done || st["panel"].Done || st["panel"].Detail != "TEST-CLAIM" {
 		t.Fatalf("a fresh install's checklist: %+v", v)
 	}
 
@@ -78,8 +80,17 @@ func TestTheSetUpChecklist(t *testing.T) {
 	gdb.Model(&model.Admin{}).Where("username = ?", "admin").Update("totp_secret", "JBSWY3DPEHPK3PXP")
 	gdb.Create(&model.Channel{Kind: "ntfy", Name: "ntfy", Enabled: true})
 	st = steps(read())
-	if !st["password"].Done || !st["twofactor"].Done || !st["channel"].Done || st["channel"].Detail != "1" {
+	if _, listed := st["password"]; listed || !st["twofactor"].Done || !st["channel"].Done || st["channel"].Detail != "1" {
 		t.Fatalf("after the admin's steps: %+v", st)
+	}
+
+	// An address without HTTPS is listed: it is wrong.
+	s.cfg.HTTPS = "off"
+	if err := settings.SaveAddress(gdb, "http://203.0.113.9:8097"); err != nil {
+		t.Fatal(err)
+	}
+	if a := steps(read())["address"]; a.Key == "" || a.Done {
+		t.Fatalf("an address over plain http with https off: %+v", a)
 	}
 
 	// The address check, from outside: this Notif under its base path, over

@@ -280,9 +280,9 @@ func (s *Server) Handler() http.Handler {
 // panel.
 func (s *Server) selfSigned() bool { return s.tls != nil && s.tls.SelfSigned() }
 
-// ServeHTTPS serves every route over HTTPS on the configured listener,
-// with the certificate the install asked for, until ctx ends. With https
-// off it does nothing.
+// ServeHTTPS serves every route over HTTPS with the certificate the install
+// asked for, until ctx ends: on Notif's port, or on the listener of its own
+// an install from before one port has. With https off it does nothing.
 func (s *Server) ServeHTTPS(ctx context.Context) error {
 	if s.tls == nil {
 		return nil
@@ -292,7 +292,11 @@ func (s *Server) ServeHTTPS(ctx context.Context) error {
 			log.Printf("https: the self-signed certificate's SHA-256 fingerprint is %s", fp)
 		}
 	}
-	return s.tls.Serve(ctx, s.cfg.HTTPSListen, s.Handler())
+	addr := s.cfg.HTTPSListen
+	if addr == "" {
+		addr = ":" + s.cfg.Port
+	}
+	return s.tls.Serve(ctx, addr, s.Handler())
 }
 
 // Healthy is the health path's answer: the database answers.

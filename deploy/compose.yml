@@ -9,6 +9,10 @@ services:
     # Time for the sends in hand to finish on a stop (Notif waits up to 45s).
     stop_grace_period: 60s
     env_file: .env
+    # The port may be below 1024 — acme serves on 443 — and the image's
+    # user is not root.
+    sysctls:
+      - net.ipv4.ip_unprivileged_port_start=0
     # A proxy on the host is reached from the container at
     # host.docker.internal (the docker host's gateway): name it in
     # local_proxies as host.docker.internal:PORT.
@@ -16,9 +20,9 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "${NEXORA_OPT_PORT:-8097}:${NEXORA_OPT_PORT:-8097}"
-      # Notif's own HTTPS (https=panel, acme, acme-http or self-signed): install.sh publishes
-      # the public address's port to it (443:8443 for acme), and otherwise
-      # a loopback port nothing uses.
+      # With HTTPS on, the port above serves it. An install from before one
+      # port has its HTTPS on :8443, published here; otherwise a loopback
+      # port nothing uses.
       - "${NEXORA_HTTPS_PUBLISH:-127.0.0.1::8443}"
       # The CA's HTTP-01 check (https=acme-http): port 80, else a loopback
       # port nothing uses.

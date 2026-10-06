@@ -31,6 +31,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -102,11 +103,6 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if made, err := admins.EnsureFirst(gdb, cfg.AdminUsername, cfg.AdminPassword); err != nil {
-		return fmt.Errorf("the first admin: %w", err)
-	} else if made {
-		log.Printf("made the first admin, %q, from the install's answers", cfg.AdminUsername)
-	}
 	raw := builtinManifest
 	if cfg.ManifestFile != "" {
 		if raw, err = os.ReadFile(cfg.ManifestFile); err != nil {
@@ -116,6 +112,23 @@ func run() error {
 	a, err := addon.New(addon.Config{Manifest: raw, DataDir: cfg.DataDir, Healthy: api.Healthy(gdb)}.FromEnv())
 	if err != nil {
 		return err
+	}
+	// The first admin from the install's answers; a new install over the
+	// data an earlier one kept (another claim code) sets the password it
+	// was given, which would otherwise go unused beside the earlier admin.
+	if a.NewInstall() && cfg.AdminPassword != "" {
+		username := strings.TrimSpace(cfg.AdminUsername)
+		if username == "" {
+			username = "admin"
+		}
+		if err := admins.ResetPassword(gdb, username, cfg.AdminPassword); err != nil {
+			return fmt.Errorf("the admin of the new install: %w", err)
+		}
+		log.Printf("a new install over kept data: %q has the install's password", username)
+	} else if made, err := admins.EnsureFirst(gdb, cfg.AdminUsername, cfg.AdminPassword); err != nil {
+		return fmt.Errorf("the first admin: %w", err)
+	} else if made {
+		log.Printf("made the first admin, %q, from the install's answers", cfg.AdminUsername)
 	}
 	var spa fs.FS
 	if sub, err := fs.Sub(frontend.Dist, "dist"); err == nil {
@@ -147,34 +160,53 @@ func run() error {
 			log.Printf("stopping: the background work did not end within %s", shutdownWait)
 		}
 	}
-	go func() {
-		if err := app.ServeHTTPS(bg); err != nil {
-			log.Printf("https: %v", err)
-		}
-	}()
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: app.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	where := "at the root"
 	if cfg.BasePath != "" {
 		where = "under " + cfg.BasePath + "/"
 	}
 	log.Printf("nexora notif %s on :%s (%s), %s", a.Manifest().Version, cfg.Port, cfg.Driver, where)
+	// With HTTPS on, the port is the HTTPS one and nothing plain listens
+	// (P9); an older install keeps HTTPS beside it.
+	httpsCtx, stopHTTPS := context.WithCancel(context.Background())
+	defer stopHTTPS()
 	errs := make(chan error, 1)
-	go func() { errs <- srv.ListenAndServe() }()
+	onePort := cfg.OnePort()
+	if onePort {
+		go func() { errs <- app.ServeHTTPS(httpsCtx) }()
+	} else {
+		go func() {
+			if err := app.ServeHTTPS(httpsCtx); err != nil {
+				log.Printf("https: %v", err)
+			}
+		}()
+		go func() { errs <- srv.ListenAndServe() }()
+	}
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	select {
 	case err := <-errs:
 		stopWork()
-		if !errors.Is(err, http.ErrServerClosed) {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
 	case <-stop:
 		// The requests in hand and the background work end side by side,
 		// so the stop takes the longer of the two waits, not their sum.
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
 		go stopWork()
-		err := srv.Shutdown(ctx)
+		stopHTTPS()
+		var err error
+		if onePort {
+			// The TLS server shuts down gracefully on its context.
+			select {
+			case <-errs:
+			case <-time.After(11 * time.Second):
+			}
+		} else {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			err = srv.Shutdown(ctx)
+		}
 		<-workStopped
 		return err
 	}
