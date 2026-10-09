@@ -1,6 +1,6 @@
 module github.com/nexora-vpn/notif
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/glebarez/sqlite v1.11.0
