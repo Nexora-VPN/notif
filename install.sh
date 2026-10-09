@@ -310,6 +310,9 @@ UNIT
 docker)
 	command -v docker >/dev/null 2>&1 || die "docker is not installed; use --method script"
 	chown 10001 "${DIR}/data" # the image runs as uid 10001
+	# The container keeps its data at /data (the image's own setting). A .env left by
+	# an install by script holds the host path, which the image's user cannot make.
+	unsetenv NEXORA_DATA_DIR
 	curl -fsSL -o "${DIR}/compose.yml" "https://raw.githubusercontent.com/${REPO}/${VERSION}/deploy/compose.yml"
 	docker compose -f "${DIR}/compose.yml" --env-file "${DIR}/.env" pull
 	docker compose -f "${DIR}/compose.yml" --env-file "${DIR}/.env" up -d
