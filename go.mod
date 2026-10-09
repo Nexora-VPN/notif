@@ -4,7 +4,7 @@ go 1.27.2
 
 require (
 	github.com/glebarez/sqlite v1.11.0
-	github.com/nexora-vpn/addon-kit v0.4.3
+	github.com/nexora-vpn/addon-kit v0.4.4
 	gorm.io/driver/postgres v1.6.3
 	gorm.io/gorm v1.31.2
 )
