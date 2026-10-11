@@ -8,8 +8,8 @@ Each notice is written once and goes through the first of the user's
 channels that reaches them, in the order the admin sets, so a paid SMS is
 sent only when the free channels could not deliver.
 
-The documentation: [English](docs/en.md) · [فارسی](docs/fa.md) ·
-[Русский](docs/ru.md) · [中文](docs/zh.md).
+The documentation: [English](https://docs.nexora-panel.org/addons/notifier) · [فارسی](https://docs.nexora-panel.org/fa/addons/notifier) ·
+[Русский](https://docs.nexora-panel.org/ru/addons/notifier) · [中文](https://docs.nexora-panel.org/zh/addons/notifier).
 
 A user links a bot by sending it their subscription link (or the link code
 the admin hands out); the chat id is written into the account's contact
