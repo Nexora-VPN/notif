@@ -5,13 +5,7 @@
   --notif-text: #26221c;
   --notif-muted: #756d61;
   font-family:
-    Vazirmatn,
-    'Segoe UI',
-    system-ui,
-    -apple-system,
-    'Noto Sans',
-    'Noto Sans Arabic',
-    sans-serif;
+    Vazirmatn, 'Segoe UI', system-ui, -apple-system, 'Noto Sans', 'Noto Sans Arabic', sans-serif;
   color: var(--notif-text);
   background: var(--notif-bg);
 }
