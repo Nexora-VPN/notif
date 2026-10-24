@@ -193,9 +193,9 @@
     }
   ],
   "setup": "/nexora/setup",
-  "signature": "ahqnnWnXTYXRvv8ky3PRwP0GePU4wjbz7LQIrGdEdqo7H5uIz67OTyNdm3c7OXRW20JHr2moXxSsjJ3tl7K2CA==",
+  "signature": "qM1drb/tDrnUpZvD8UbzkYQ/9MYcDTXGK4qQqMm3Ett44iO6BUc3YHBswRHJ+qFR54IsSUjNtQgP7Te0nJH3Cw==",
   "slug": "notif",
   "ui": "/",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "webhook": "/nexora/events"
 }
