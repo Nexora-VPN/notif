@@ -1,7 +1,7 @@
 # On a v* tag: the image the docker install pulls (docker.yml), then the
 # release with the binaries the script install downloads and their checksums,
 # last, so the directory never sees a release whose image is missing. The
-# manifest must name the tag's version and carry Nexora's signature — signed
+# manifest must name the tag's version and carry NX's signature — signed
 # on the owner's machine (scripts/sign.sh) before the tag is pushed, since the
 # signature covers the version.
 name: release
@@ -19,14 +19,14 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - name: the manifest names this release and Nexora signed it
+      - name: the manifest names this release and NX signed it
         run: |
           want="${GITHUB_REF_NAME#v}"
-          have="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' nexora-addon.json | head -n 1)"
-          [ "$want" = "$have" ] || { echo "nexora-addon.json says $have, the tag is $want"; exit 1; }
-          kit() { go run github.com/nexora-vpn/addon-kit/cmd/nexora-addon "$@"; }
-          kit check nexora-addon.json
-          [ "$(kit verify nexora-addon.json)" = "signed by: Nexora" ] || { echo "nexora-addon.json is not signed by Nexora: run scripts/sign.sh"; exit 1; }
+          have="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' nx-addon.json | head -n 1)"
+          [ "$want" = "$have" ] || { echo "nx-addon.json says $have, the tag is $want"; exit 1; }
+          kit() { go run github.com/nx-panel/addon-kit/cmd/nx-addon "$@"; }
+          kit check nx-addon.json
+          [ "$(kit verify nx-addon.json)" = "signed by: NX" ] || { echo "nx-addon.json is not signed by NX: run scripts/sign.sh"; exit 1; }
 
   image:
     needs: check
@@ -58,7 +58,7 @@ jobs:
             CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -ldflags "-s -w" -o notif .
             tar -czf "dist/notif-linux-${arch}.tar.gz" notif
           done
-          cp nexora-addon.json install.sh dist/
+          cp nx-addon.json install.sh dist/
           (cd dist && sha256sum * > SHA256SUMS)
       - name: release
         env:
@@ -67,4 +67,4 @@ jobs:
           pre=""
           case "$GITHUB_REF_NAME" in *-*) pre="--prerelease" ;; esac
           gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" $pre --generate-notes \
-            --notes "Docker: \`docker pull ghcr.io/nexora-vpn/notif:${GITHUB_REF_NAME#v}\`"
+            --notes "Docker: \`docker pull ghcr.io/nx-panel/notif:${GITHUB_REF_NAME#v}\`"

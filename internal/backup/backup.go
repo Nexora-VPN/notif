@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/glebarez/sqlite"
-	"github.com/nexora-vpn/notif/internal/config"
+	"github.com/nx-panel/notif/internal/config"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )

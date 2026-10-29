@@ -16,13 +16,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nexora-vpn/addon-kit/auth"
-	"github.com/nexora-vpn/addon-kit/telegram"
-	"github.com/nexora-vpn/notif/internal/channel"
-	"github.com/nexora-vpn/notif/internal/links"
-	"github.com/nexora-vpn/notif/internal/model"
-	"github.com/nexora-vpn/notif/internal/notices"
-	"github.com/nexora-vpn/notif/internal/settings"
+	"github.com/nx-panel/addon-kit/auth"
+	"github.com/nx-panel/addon-kit/telegram"
+	"github.com/nx-panel/notif/internal/channel"
+	"github.com/nx-panel/notif/internal/links"
+	"github.com/nx-panel/notif/internal/model"
+	"github.com/nx-panel/notif/internal/notices"
+	"github.com/nx-panel/notif/internal/settings"
 	"gorm.io/gorm"
 )
 

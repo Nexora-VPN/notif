@@ -199,7 +199,7 @@ func TestEmail(t *testing.T) {
 		}
 	}()
 	host, port, _ := net.SplitHostPort(ln.Addr().String())
-	cfg, err := Check("smtp", map[string]string{"host": host, "port": port, "security": "none", "from": "notices@example.com", "fromName": "Nexora"})
+	cfg, err := Check("smtp", map[string]string{"host": host, "port": port, "security": "none", "from": "notices@example.com", "fromName": "NX"})
 	if err != nil {
 		t.Fatal(err)
 	}

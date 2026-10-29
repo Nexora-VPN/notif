@@ -1,6 +1,6 @@
-# Nexora Notif
+# NX Notif
 
-An official, open [Nexora](https://nexora-panel.org) addon that tells a
+An official, open [NX](https://nx-panel.org) addon that tells a
 panel's users about their accounts: the expiry date drawing near and the
 traffic running out, renewals and other changes, and messages of the admin's
 own to one user or a group — over Telegram, Bale, SMS, email or any HTTP API.
@@ -8,8 +8,8 @@ Each notice is written once and goes through the first of the user's
 channels that reaches them, in the order the admin sets, so a paid SMS is
 sent only when the free channels could not deliver.
 
-The documentation: [English](https://docs.nexora-panel.org/addons/notifier) · [فارسی](https://docs.nexora-panel.org/fa/addons/notifier) ·
-[Русский](https://docs.nexora-panel.org/ru/addons/notifier) · [中文](https://docs.nexora-panel.org/zh/addons/notifier).
+The documentation: [English](https://docs.nx-panel.org/addons/notifier) · [فارسی](https://docs.nx-panel.org/fa/addons/notifier) ·
+[Русский](https://docs.nx-panel.org/ru/addons/notifier) · [中文](https://docs.nx-panel.org/zh/addons/notifier).
 
 A user links a bot by sending it their subscription link (or the link code
 the admin hands out); the chat id is written into the account's contact
@@ -19,14 +19,14 @@ one another addon wrote stays on the card, and Notif's bot stops writing to
 it. Give Notif bots of its own: a bot's updates can be read by one program
 only.
 
-Notif is separate software, as every Nexora addon is: its own container or
+Notif is separate software, as every NX addon is: its own container or
 service and its own database, talking to the panel over the network only,
 with a scoped token and the panel's signed events. It keeps no copy of the
 panel's data beyond what it needs to send.
 
 ## Install
 
-From the panel: **Services → Addons → Browse → Nexora Notif → Install**. The
+From the panel: **Services → Addons → Browse → NX Notif → Install**. The
 panel asks the manifest's questions (port, database, the first admin) and
 installs Notif on its own host or another one over SSH, or prints the
 command to run by hand:
@@ -65,7 +65,7 @@ puts one back with Notif stopped. On PostgreSQL, use `pg_dump`.
 ```sh
 cp .env.example .env
 (cd frontend && npm ci && npm run build)
-NEXORA_OPT_ADMIN_PASSWORD=change-me-please go run .
+NX_OPT_ADMIN_PASSWORD=change-me-please go run .
 # admin web on http://localhost:8097
 ```
 
@@ -75,11 +75,11 @@ try, sign with the development key and run a panel built with
 
 ```sh
 scripts/sign.sh -dev
-NEXORA_MANIFEST_FILE=signed.json go run .
+NX_MANIFEST_FILE=signed.json go run .
 ```
 
-Tests run on SQLite, and on PostgreSQL with `NEXORA_TEST_POSTGRES_DSN`.
+Tests run on SQLite, and on PostgreSQL with `NX_TEST_POSTGRES_DSN`.
 
-Built on [addon-kit](https://github.com/Nexora-VPN/addon-kit). Licensed
+Built on [addon-kit](https://github.com/nx-panel/addon-kit). Licensed
 under the GNU Affero General Public License v3.0: a changed Notif offered to
 others over a network must offer them its source.

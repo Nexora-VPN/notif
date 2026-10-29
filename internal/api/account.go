@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nexora-vpn/addon-kit/auth"
-	"github.com/nexora-vpn/addon-kit/web"
-	"github.com/nexora-vpn/notif/internal/admins"
-	"github.com/nexora-vpn/notif/internal/model"
+	"github.com/nx-panel/addon-kit/auth"
+	"github.com/nx-panel/addon-kit/web"
+	"github.com/nx-panel/notif/internal/admins"
+	"github.com/nx-panel/notif/internal/model"
 )
 
 // Signing in, the second factor, and the admin's own security.
@@ -243,7 +243,7 @@ func (s *Server) handleTOTPEnrol(w http.ResponseWriter, _ *http.Request, a model
 	s.mu.Lock()
 	s.enrol[a.ID] = secret
 	s.mu.Unlock()
-	writeJSON(w, http.StatusOK, map[string]string{"secret": secret, "uri": auth.TOTPURI("Nexora Notif", a.Username, secret)})
+	writeJSON(w, http.StatusOK, map[string]string{"secret": secret, "uri": auth.TOTPURI("NX Notif", a.Username, secret)})
 }
 
 func (s *Server) handleTOTPConfirm(w http.ResponseWriter, r *http.Request, a model.Admin) {

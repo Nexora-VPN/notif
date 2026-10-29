@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nexora-vpn/addon-kit/auth"
-	"github.com/nexora-vpn/notif/internal/model"
+	"github.com/nx-panel/addon-kit/auth"
+	"github.com/nx-panel/notif/internal/model"
 	"gorm.io/gorm"
 )
 

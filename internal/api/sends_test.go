@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/nexora-vpn/notif/internal/model"
+	"github.com/nx-panel/notif/internal/model"
 )
 
 // TestAMessageToAGroup: the count before sending says where each account's

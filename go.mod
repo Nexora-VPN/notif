@@ -1,10 +1,10 @@
-module github.com/nexora-vpn/notif
+module github.com/nx-panel/notif
 
 go 1.27.3
 
 require (
 	github.com/glebarez/sqlite v1.11.0
-	github.com/nexora-vpn/addon-kit v0.4.5
+	github.com/nx-panel/addon-kit v0.5.0
 	gorm.io/driver/postgres v1.6.3
 	gorm.io/gorm v1.31.2
 )

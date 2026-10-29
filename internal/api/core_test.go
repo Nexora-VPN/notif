@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nexora-vpn/notif/internal/channel"
-	"github.com/nexora-vpn/notif/internal/model"
+	"github.com/nx-panel/notif/internal/channel"
+	"github.com/nx-panel/notif/internal/model"
 )
 
 // TestChannelsTheirOrderAndATest: a generic channel is added with a secret

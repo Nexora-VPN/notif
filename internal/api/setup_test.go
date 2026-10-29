@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nexora-vpn/addon-kit/web"
-	"github.com/nexora-vpn/notif/internal/config"
-	"github.com/nexora-vpn/notif/internal/model"
-	"github.com/nexora-vpn/notif/internal/settings"
+	"github.com/nx-panel/addon-kit/web"
+	"github.com/nx-panel/notif/internal/config"
+	"github.com/nx-panel/notif/internal/model"
+	"github.com/nx-panel/notif/internal/settings"
 )
 
 // TestEverythingLivesUnderTheBasePath (GN-S7, P43 (b)): with a base path
@@ -19,7 +19,7 @@ import (
 // nothing is there. The admin's cookie keeps to the base path's tree.
 func TestEverythingLivesUnderTheBasePath(t *testing.T) {
 	_, _, h := newServerWith(t, func(c *config.Config) { c.BasePath = "/q7w2" })
-	for _, p := range []string{"/", "/api/me", "/api/setup", "/health", "/.well-known/nexora-addon.json", "/nexora/setup", whoAmIPath, "/channels", "/q7w"} {
+	for _, p := range []string{"/", "/api/me", "/api/setup", "/health", "/.well-known/nx-addon.json", "/nx/setup", whoAmIPath, "/channels", "/q7w"} {
 		if w := call(t, h, "GET", p, ""); w.Code != http.StatusNotFound || strings.Contains(w.Body.String(), "q7w2") {
 			t.Errorf("%s at the root = %d %q", p, w.Code, w.Body)
 		}
@@ -27,7 +27,7 @@ func TestEverythingLivesUnderTheBasePath(t *testing.T) {
 	if w := call(t, h, "GET", "/q7w2", ""); w.Code != http.StatusMovedPermanently || w.Header().Get("Location") != "/q7w2/" {
 		t.Errorf("the bare base = %d %q", w.Code, w.Header().Get("Location"))
 	}
-	for p, want := range map[string]int{"/q7w2/health": http.StatusOK, "/q7w2/.well-known/nexora-addon.json": http.StatusOK, "/q7w2/api/me": http.StatusUnauthorized, "/q7w2" + whoAmIPath: http.StatusOK} {
+	for p, want := range map[string]int{"/q7w2/health": http.StatusOK, "/q7w2/.well-known/nx-addon.json": http.StatusOK, "/q7w2/api/me": http.StatusUnauthorized, "/q7w2" + whoAmIPath: http.StatusOK} {
 		if w := call(t, h, "GET", p, ""); w.Code != want {
 			t.Errorf("%s = %d, want %d", p, w.Code, want)
 		}

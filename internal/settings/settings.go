@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nexora-vpn/notif/internal/model"
+	"github.com/nx-panel/notif/internal/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

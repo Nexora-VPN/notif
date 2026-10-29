@@ -1,6 +1,6 @@
 // Package config reads Notif's configuration from the environment, the way
 // the install passes it: the answers to the manifest's options as
-// NEXORA_OPT_<KEY>, beside NEXORA_DATA_DIR and NEXORA_MANIFEST_FILE.
+// NX_OPT_<KEY>, beside NX_DATA_DIR and NX_MANIFEST_FILE.
 package config
 
 import (
@@ -11,8 +11,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/nexora-vpn/addon-kit/addon"
-	"github.com/nexora-vpn/addon-kit/web"
+	"github.com/nx-panel/addon-kit/addon"
+	"github.com/nx-panel/addon-kit/web"
 )
 
 // The database drivers the manifest's "database" option offers.
@@ -73,16 +73,16 @@ func Load() (Config, error) {
 		BasePath:      addon.Option("base_path"),
 		PublicURL:     strings.TrimRight(strings.TrimSpace(addon.Option("public_url")), "/"),
 		HTTPS:         strings.ToLower(option("https", web.HTTPSOff)),
-		HTTPSListen:   os.Getenv("NEXORA_HTTPS_LISTEN"),
-		HTTPListen:    env("NEXORA_HTTP_LISTEN", ":80"),
-		ACMEDirectory: os.Getenv("NEXORA_ACME_DIRECTORY"),
-		ACMEInsecure:  os.Getenv("NEXORA_ACME_INSECURE") == "1",
-		DataDir:       env("NEXORA_DATA_DIR", "data"),
+		HTTPSListen:   os.Getenv("NX_HTTPS_LISTEN"),
+		HTTPListen:    env("NX_HTTP_LISTEN", ":80"),
+		ACMEDirectory: os.Getenv("NX_ACME_DIRECTORY"),
+		ACMEInsecure:  os.Getenv("NX_ACME_INSECURE") == "1",
+		DataDir:       env("NX_DATA_DIR", "data"),
 		Driver:        strings.ToLower(option("database", DriverSQLite)),
 		DSN:           strings.TrimSpace(addon.Option("database_dsn")),
 		AdminUsername: option("admin_username", "admin"),
 		AdminPassword: addon.Option("admin_password"),
-		ManifestFile:  os.Getenv("NEXORA_MANIFEST_FILE"),
+		ManifestFile:  os.Getenv("NX_MANIFEST_FILE"),
 		LocalProxies:  strings.TrimSpace(addon.Option("local_proxies")),
 	}
 	if !slices.Contains(web.HTTPSModes, c.HTTPS) {
@@ -98,7 +98,7 @@ func Load() (Config, error) {
 		c.DSN = filepath.Join(c.DataDir, "notif.db")
 	case DriverPostgres:
 		if c.DSN == "" {
-			return c, errors.New("database is postgres but database_dsn (NEXORA_OPT_DATABASE_DSN) is empty")
+			return c, errors.New("database is postgres but database_dsn (NX_OPT_DATABASE_DSN) is empty")
 		}
 	default:
 		return c, errors.New("database must be sqlite or postgres")

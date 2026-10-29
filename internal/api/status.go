@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/nexora-vpn/addon-kit/panel"
-	"github.com/nexora-vpn/notif/internal/model"
+	"github.com/nx-panel/addon-kit/panel"
+	"github.com/nx-panel/notif/internal/model"
 )
 
 // statusView is the dashboard's readout: Notif's version and database, and

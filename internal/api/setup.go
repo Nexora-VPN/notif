@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nexora-vpn/addon-kit/auth"
-	"github.com/nexora-vpn/addon-kit/web"
-	"github.com/nexora-vpn/notif/internal/backup"
-	"github.com/nexora-vpn/notif/internal/config"
-	"github.com/nexora-vpn/notif/internal/model"
-	"github.com/nexora-vpn/notif/internal/settings"
+	"github.com/nx-panel/addon-kit/auth"
+	"github.com/nx-panel/addon-kit/web"
+	"github.com/nx-panel/notif/internal/backup"
+	"github.com/nx-panel/notif/internal/config"
+	"github.com/nx-panel/notif/internal/model"
+	"github.com/nx-panel/notif/internal/settings"
 )
 
 // Set-up (docs/phase-g.md GN-S7, P44 (b)): the checklist the admin web
@@ -21,7 +21,7 @@ import (
 
 // whoAmIPath is where Notif answers its instance name, under the base path
 // like everything else: the address check asks the public address for it.
-const whoAmIPath = "/nexora-notif/whoami"
+const whoAmIPath = "/nx-notif/whoami"
 
 func (s *Server) mountSetup(mux *http.ServeMux) {
 	mux.HandleFunc("GET "+whoAmIPath, func(w http.ResponseWriter, r *http.Request) {

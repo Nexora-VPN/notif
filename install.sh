@@ -1,5 +1,5 @@
 #!/bin/sh
-# Installs, updates or removes this Nexora addon on a Linux host — by hand, or
+# Installs, updates or removes this NX addon on a Linux host — by hand, or
 # by the panel over SSH (the same way it installs a node). Run it as root.
 #
 #   sh install.sh --method docker --opt port=8097 --panel-url https://panel.example --claim-code ABC123
@@ -15,7 +15,7 @@
 # --opt KEY=VALUE   an answer to one of the manifest's install options; repeat.
 #                   A first install with no base_path draws one;
 #                   base_path= puts Notif at the root.
-# --panel-url URL   the panel's address, passed as NEXORA_PANEL_URL
+# --panel-url URL   the panel's address, passed as NX_PANEL_URL
 # --claim-code C    the one-time code the panel registers the addon with
 # --uninstall       stop and remove the addon; --purge also deletes its data
 #
@@ -24,10 +24,10 @@
 set -eu
 
 SLUG="notif"
-REPO="Nexora-VPN/notif"
+REPO="nx-panel/notif"
 BIN="notif"
-DIR="/opt/nexora-addons/${SLUG}"
-UNIT="nexora-addon-${SLUG}"
+DIR="/opt/nx-addons/${SLUG}"
+UNIT="nx-addon-${SLUG}"
 
 METHOD=""
 VERSION=""
@@ -62,14 +62,46 @@ done
 
 [ "$(id -u)" = 0 ] || die "run as root"
 
+# An install made under the product's old name is moved first: its unit or
+# its containers are stopped, its directory moves to ${DIR} with its answers
+# and data, and the answers take their new names. The run then goes on as an
+# update, and the panel's claim code registers it again. Each step looks
+# before it acts, so a run cut off halfway is finished by the next one.
+OLD_DIR="/opt/nexora-addons/${SLUG}" # rebrand-ok
+OLD_UNIT="nexora-addon-${SLUG}"      # rebrand-ok
+OLD_BIN="${BIN}"
+if [ -e "$OLD_DIR" ] || [ -f "/etc/systemd/system/${OLD_UNIT}.service" ]; then
+	echo "moving ${SLUG} installed under the old name"
+	if [ -f "/etc/systemd/system/${OLD_UNIT}.service" ]; then
+		systemctl disable --now "$OLD_UNIT" 2>/dev/null || true
+	fi
+	if [ -f "${OLD_DIR}/compose.yml" ] && command -v docker >/dev/null 2>&1; then
+		docker compose -f "${OLD_DIR}/compose.yml" --env-file "${OLD_DIR}/.env" down || true
+	fi
+	if [ -e "$OLD_DIR" ]; then
+		mkdir -p "$(dirname "$DIR")"
+		if [ -e "$DIR" ]; then
+			cp -a -n "${OLD_DIR}/." "${DIR}/" && rm -rf "${OLD_DIR:?}"
+		else
+			mv "$OLD_DIR" "$DIR"
+		fi
+	fi
+	if [ -f "${DIR}/.env" ]; then
+		sed -i "s#^NEXORA_#NX_#; s#${OLD_DIR}#${DIR}#g" "${DIR}/.env" # rebrand-ok
+	fi
+	rm -f "/etc/systemd/system/${OLD_UNIT:?}.service" "${DIR:?}/bin/${OLD_BIN:?}" "${DIR:?}/compose.yml"
+	systemctl daemon-reload 2>/dev/null || true
+	rmdir "$(dirname "$OLD_DIR")" 2>/dev/null || true
+fi
+
 if [ "$UNINSTALL" = 1 ]; then
 	if [ -f "/etc/systemd/system/${UNIT}.service" ]; then
 		systemctl disable --now "$UNIT" 2>/dev/null || true
 		rm -f "/etc/systemd/system/${UNIT}.service"
 		systemctl daemon-reload
 	fi
-	if [ "$PURGE" = 1 ] && id "nexora-${SLUG}" >/dev/null 2>&1; then
-		userdel "nexora-${SLUG}" 2>/dev/null || deluser "nexora-${SLUG}" 2>/dev/null || true
+	if [ "$PURGE" = 1 ] && id "nx-${SLUG}" >/dev/null 2>&1; then
+		userdel "nx-${SLUG}" 2>/dev/null || deluser "nx-${SLUG}" 2>/dev/null || true
 	fi
 	if [ -f "${DIR}/compose.yml" ] && command -v docker >/dev/null 2>&1; then
 		docker compose -f "${DIR}/compose.yml" --env-file "${DIR}/.env" down || true
@@ -152,11 +184,11 @@ setenv() {
 printf '%s' "$OPTS" | while IFS= read -r kv; do
 	[ -n "$kv" ] || continue
 	key="$(printf '%s' "${kv%%=*}" | tr 'a-z' 'A-Z')"
-	setenv "NEXORA_OPT_${key}" "${kv#*=}"
+	setenv "NX_OPT_${key}" "${kv#*=}"
 done
-[ -z "$PANEL_URL" ] || setenv NEXORA_PANEL_URL "$PANEL_URL"
-[ -z "$CLAIM_CODE" ] || setenv NEXORA_CLAIM_CODE "$CLAIM_CODE"
-setenv NEXORA_ADDON_VERSION "${VERSION#v}"
+[ -z "$PANEL_URL" ] || setenv NX_PANEL_URL "$PANEL_URL"
+[ -z "$CLAIM_CODE" ] || setenv NX_CLAIM_CODE "$CLAIM_CODE"
+setenv NX_ADDON_VERSION "${VERSION#v}"
 
 # unsetenv KEY: drop a line of the .env file.
 unsetenv() {
@@ -176,8 +208,8 @@ getenv() {
 # gives none draws one, so Notif is not where a scanner looks; an update
 # keeps what the install has — none, for one from before base paths, is
 # the root.
-if [ "$FRESH" = 1 ] && ! grep -q '^NEXORA_OPT_BASE_PATH=' "$ENVF"; then
-	setenv NEXORA_OPT_BASE_PATH "$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 12)"
+if [ "$FRESH" = 1 ] && ! grep -q '^NX_OPT_BASE_PATH=' "$ENVF"; then
+	setenv NX_OPT_BASE_PATH "$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 12)"
 fi
 
 # With HTTPS on, Notif's port is its HTTPS port and nothing plain listens
@@ -186,25 +218,25 @@ fi
 # it, so it is 443; acme-http answers the CA on port 80 as well, which
 # compose publishes only then. An update of an install from before keeps
 # its two ports: HTTPS on a listener of its own beside the plain one.
-HTTPS_MODE="$(getenv NEXORA_OPT_HTTPS)"
-PORT_NOW="$(getenv NEXORA_OPT_PORT)"
+HTTPS_MODE="$(getenv NX_OPT_HTTPS)"
+PORT_NOW="$(getenv NX_OPT_PORT)"
 PORT_NOW="${PORT_NOW:-8097}"
 TWO_PORTS=0
 if [ -z "$CLAIM_CODE" ] && [ "$FRESH" = 0 ]; then
-	[ -z "$(getenv NEXORA_HTTPS_LISTEN)" ] || TWO_PORTS=1
-	case "$(getenv NEXORA_HTTPS_PUBLISH)" in "" | 127.0.0.1:*) ;; *) TWO_PORTS=1 ;; esac
+	[ -z "$(getenv NX_HTTPS_LISTEN)" ] || TWO_PORTS=1
+	case "$(getenv NX_HTTPS_PUBLISH)" in "" | 127.0.0.1:*) ;; *) TWO_PORTS=1 ;; esac
 fi
 if [ "$TWO_PORTS" = 1 ]; then
 	# Named in .env: the compose file sets the listener from it, empty
 	# (one port) when .env names none, whatever the image's :8443.
-	[ "$METHOD" != docker ] || [ -n "$(getenv NEXORA_HTTPS_LISTEN)" ] || setenv NEXORA_HTTPS_LISTEN ":8443"
+	[ "$METHOD" != docker ] || [ -n "$(getenv NX_HTTPS_LISTEN)" ] || setenv NX_HTTPS_LISTEN ":8443"
 else
 	# Empty, not absent: the image's own :8443 is for an install from before.
-	setenv NEXORA_HTTPS_LISTEN ""
-	unsetenv NEXORA_HTTPS_PUBLISH
+	setenv NX_HTTPS_LISTEN ""
+	unsetenv NX_HTTPS_PUBLISH
 	case "$HTTPS_MODE" in
 	panel | acme | acme-http | self-signed)
-		PUBLIC="$(getenv NEXORA_OPT_PUBLIC_URL)"
+		PUBLIC="$(getenv NX_OPT_PUBLIC_URL)"
 		case "$PUBLIC" in https://*) ;; *) die "https ${HTTPS_MODE} serves the public address over HTTPS: it starts with https://" ;; esac
 		p="$(printf '%s' "$PUBLIC" | sed -n 's#^https://[^/]*:\([0-9][0-9]*\)\(/.*\)\{0,1\}$#\1#p')"
 		[ -n "$p" ] || p=443
@@ -217,8 +249,8 @@ else
 	esac
 fi
 case "$HTTPS_MODE" in
-acme-http) setenv NEXORA_HTTP_PUBLISH "80:8080" ;;
-*) setenv NEXORA_HTTP_PUBLISH "127.0.0.1::8080" ;;
+acme-http) setenv NX_HTTP_PUBLISH "80:8080" ;;
+*) setenv NX_HTTP_PUBLISH "127.0.0.1::8080" ;;
 esac
 
 # Checked: the answers are the install's.
@@ -233,7 +265,7 @@ script)
 	aarch64 | arm64) ARCH=arm64 ;;
 	*) die "no build of ${SLUG} for $(uname -m)" ;;
 	esac
-	setenv NEXORA_DATA_DIR "${DIR}/data"
+	setenv NX_DATA_DIR "${DIR}/data"
 	tmp="$(mktemp -d)"
 	trap 'rm -rf "$tmp"' EXIT
 	ARCHIVE="${BIN}-linux-${ARCH}.tar.gz"
@@ -261,23 +293,23 @@ script)
 	install -m 755 "${tmp}/${BIN}" "${DIR}/bin/${BIN}"
 	# Its own user, owning only the data: the service reads its settings
 	# and writes its database, nothing else of the host.
-	if ! id "nexora-${SLUG}" >/dev/null 2>&1; then
-		useradd --system --no-create-home --home-dir "${DIR}" --shell /usr/sbin/nologin "nexora-${SLUG}" 2>/dev/null ||
-			adduser -S -H -h "${DIR}" -s /sbin/nologin "nexora-${SLUG}" ||
-			die "could not make the user nexora-${SLUG}"
+	if ! id "nx-${SLUG}" >/dev/null 2>&1; then
+		useradd --system --no-create-home --home-dir "${DIR}" --shell /usr/sbin/nologin "nx-${SLUG}" 2>/dev/null ||
+			adduser -S -H -h "${DIR}" -s /sbin/nologin "nx-${SLUG}" ||
+			die "could not make the user nx-${SLUG}"
 	fi
-	chown -R "nexora-${SLUG}" "${DIR}/data"
+	chown -R "nx-${SLUG}" "${DIR}/data"
 	chmod 700 "${DIR}/data"
-	chown "nexora-${SLUG}" "${DIR}/.env"
+	chown "nx-${SLUG}" "${DIR}/.env"
 	chmod 755 "${DIR}" # the service user passes through to its data and .env
 	cat >"/etc/systemd/system/${UNIT}.service" <<UNIT
 [Unit]
-Description=Nexora addon ${SLUG}
+Description=NX addon ${SLUG}
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-User=nexora-${SLUG}
+User=nx-${SLUG}
 EnvironmentFile=${DIR}/.env
 WorkingDirectory=${DIR}
 ExecStart=${DIR}/bin/${BIN}
@@ -312,7 +344,7 @@ docker)
 	chown 10001 "${DIR}/data" # the image runs as uid 10001
 	# The container keeps its data at /data (the image's own setting). A .env left by
 	# an install by script holds the host path, which the image's user cannot make.
-	unsetenv NEXORA_DATA_DIR
+	unsetenv NX_DATA_DIR
 	curl -fsSL -o "${DIR}/compose.yml" "https://raw.githubusercontent.com/${REPO}/${VERSION}/deploy/compose.yml"
 	docker compose -f "${DIR}/compose.yml" --env-file "${DIR}/.env" pull
 	docker compose -f "${DIR}/compose.yml" --env-file "${DIR}/.env" up -d
@@ -320,11 +352,11 @@ docker)
 esac
 
 echo "installed ${SLUG} ${VERSION} (${METHOD}) in ${DIR}"
-BASE="$(getenv NEXORA_OPT_BASE_PATH | tr -d /)"
-PORT="$(getenv NEXORA_OPT_PORT)"
+BASE="$(getenv NX_OPT_BASE_PATH | tr -d /)"
+PORT="$(getenv NX_OPT_PORT)"
 # With HTTPS on one port, the admin is at the public address.
 ADMIN="http://<this host>:${PORT:-8097}"
 if [ "$TWO_PORTS" = 0 ]; then
-	case "$HTTPS_MODE" in panel | acme | acme-http | self-signed) ADMIN="$(getenv NEXORA_OPT_PUBLIC_URL | sed 's#/*$##')" ;; esac
+	case "$HTTPS_MODE" in panel | acme | acme-http | self-signed) ADMIN="$(getenv NX_OPT_PUBLIC_URL | sed 's#/*$##')" ;; esac
 fi
 echo "the admin: ${ADMIN}/${BASE}${BASE:+/ — keep the path to yourself}"

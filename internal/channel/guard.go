@@ -19,7 +19,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nexora-vpn/addon-kit/telegram"
+	"github.com/nx-panel/addon-kit/telegram"
 )
 
 // Every channel reaches an address the admin chose — the generic HTTP

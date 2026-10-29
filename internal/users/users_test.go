@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nexora-vpn/addon-kit/panel"
-	"github.com/nexora-vpn/notif/internal/config"
-	"github.com/nexora-vpn/notif/internal/db"
-	"github.com/nexora-vpn/notif/internal/model"
-	"github.com/nexora-vpn/notif/internal/settings"
+	"github.com/nx-panel/addon-kit/panel"
+	"github.com/nx-panel/notif/internal/config"
+	"github.com/nx-panel/notif/internal/db"
+	"github.com/nx-panel/notif/internal/model"
+	"github.com/nx-panel/notif/internal/settings"
 	"gorm.io/gorm"
 )
 
@@ -71,7 +71,7 @@ func openCfg(t *testing.T) (*gorm.DB, config.Config) {
 	t.Helper()
 	dir := t.TempDir()
 	cfg := config.Config{DataDir: dir, Driver: config.DriverSQLite, DSN: dir + "/notif.db"}
-	if dsn := os.Getenv("NEXORA_TEST_POSTGRES_DSN"); dsn != "" {
+	if dsn := os.Getenv("NX_TEST_POSTGRES_DSN"); dsn != "" {
 		cfg.Driver, cfg.DSN = config.DriverPostgres, dsn
 	}
 	gdb, err := db.Open(cfg)

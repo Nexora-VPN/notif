@@ -20,16 +20,16 @@ FROM alpine:3.24
 RUN apk add --no-cache ca-certificates tzdata && adduser -D -H -u 10001 notif && mkdir /data && chown notif /data
 COPY --from=build /out/notif /usr/local/bin/notif
 USER notif
-ENV NEXORA_DATA_DIR=/data
+ENV NX_DATA_DIR=/data
 # With HTTPS on, Notif's port serves it (one address; the compose file
-# and install.sh set NEXORA_HTTPS_LISTEN empty); acme-http answers the CA
+# and install.sh set NX_HTTPS_LISTEN empty); acme-http answers the CA
 # on :8080, which compose publishes from port 80. An install from before
 # one port, updated with its old compose file, keeps HTTPS on :8443.
-ENV NEXORA_HTTPS_LISTEN=:8443
-ENV NEXORA_HTTP_LISTEN=:8080
+ENV NX_HTTPS_LISTEN=:8443
+ENV NX_HTTP_LISTEN=:8080
 VOLUME /data
 EXPOSE 8097 8443 8080
-LABEL org.opencontainers.image.source="https://github.com/Nexora-VPN/notif" \
-      org.opencontainers.image.title="Nexora Notif" \
+LABEL org.opencontainers.image.source="https://github.com/nx-panel/notif" \
+      org.opencontainers.image.title="NX Notif" \
       org.opencontainers.image.licenses="AGPL-3.0-only"
 ENTRYPOINT ["/usr/local/bin/notif"]

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nexora-vpn/addon-kit/telegram"
+	"github.com/nx-panel/addon-kit/telegram"
 )
 
 // The bots (P33, P38): Telegram, Bale and Soroush Plus speak one Bot API,

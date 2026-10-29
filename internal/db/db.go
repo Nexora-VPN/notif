@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/glebarez/sqlite"
-	"github.com/nexora-vpn/notif/internal/channel"
-	"github.com/nexora-vpn/notif/internal/config"
-	"github.com/nexora-vpn/notif/internal/model"
+	"github.com/nx-panel/notif/internal/channel"
+	"github.com/nx-panel/notif/internal/config"
+	"github.com/nx-panel/notif/internal/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

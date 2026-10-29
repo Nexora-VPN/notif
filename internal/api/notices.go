@@ -7,10 +7,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/nexora-vpn/notif/internal/channel"
-	"github.com/nexora-vpn/notif/internal/model"
-	"github.com/nexora-vpn/notif/internal/notices"
-	"github.com/nexora-vpn/notif/internal/settings"
+	"github.com/nx-panel/notif/internal/channel"
+	"github.com/nx-panel/notif/internal/model"
+	"github.com/nx-panel/notif/internal/notices"
+	"github.com/nx-panel/notif/internal/settings"
 	"gorm.io/gorm/clause"
 )
 

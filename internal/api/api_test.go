@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nexora-vpn/addon-kit/addon"
-	"github.com/nexora-vpn/addon-kit/auth"
-	"github.com/nexora-vpn/notif/internal/admins"
-	"github.com/nexora-vpn/notif/internal/channel"
-	"github.com/nexora-vpn/notif/internal/config"
-	"github.com/nexora-vpn/notif/internal/db"
-	"github.com/nexora-vpn/notif/internal/model"
+	"github.com/nx-panel/addon-kit/addon"
+	"github.com/nx-panel/addon-kit/auth"
+	"github.com/nx-panel/notif/internal/admins"
+	"github.com/nx-panel/notif/internal/channel"
+	"github.com/nx-panel/notif/internal/config"
+	"github.com/nx-panel/notif/internal/db"
+	"github.com/nx-panel/notif/internal/model"
 	"gorm.io/gorm"
 )
 
@@ -27,7 +27,7 @@ func TestMain(m *testing.M) {
 }
 
 // newServer is a Notif on a fresh database — SQLite in a temporary
-// directory, or the PostgreSQL that NEXORA_TEST_POSTGRES_DSN names (its
+// directory, or the PostgreSQL that NX_TEST_POSTGRES_DSN names (its
 // tables emptied first) — with one admin, admin / correct horse.
 func newServer(t *testing.T) (*Server, *gorm.DB, http.Handler) {
 	t.Helper()
@@ -42,7 +42,7 @@ func newServerWith(t *testing.T, change func(*config.Config)) (*Server, *gorm.DB
 	if change != nil {
 		change(&cfg)
 	}
-	if dsn := os.Getenv("NEXORA_TEST_POSTGRES_DSN"); dsn != "" {
+	if dsn := os.Getenv("NX_TEST_POSTGRES_DSN"); dsn != "" {
 		cfg.Driver, cfg.DSN = config.DriverPostgres, dsn
 	}
 	gdb, err := db.Open(cfg)
@@ -55,7 +55,7 @@ func newServerWith(t *testing.T, change func(*config.Config)) (*Server, *gorm.DB
 	if _, err := admins.EnsureFirst(gdb, "admin", "correct horse"); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := os.ReadFile("../../nexora-addon.json")
+	raw, err := os.ReadFile("../../nx-addon.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestSigningInWithAndWithoutASecondFactor(t *testing.T) {
 	w := call(t, h, "POST", "/api/me/2fa/totp", "", c)
 	var enrol struct{ Secret, URI string }
 	_ = json.Unmarshal(w.Body.Bytes(), &enrol)
-	if w.Code != http.StatusOK || !strings.HasPrefix(enrol.URI, "otpauth://totp/Nexora%20Notif:admin") {
+	if w.Code != http.StatusOK || !strings.HasPrefix(enrol.URI, "otpauth://totp/NX%20Notif:admin") {
 		t.Fatalf("enrol: %d %s", w.Code, w.Body)
 	}
 	if w := call(t, h, "POST", "/api/me/2fa/totp/confirm", `{"code":"`+auth.TOTPCode(enrol.Secret, time.Now())+`"}`, c); w.Code != http.StatusNoContent {
@@ -187,7 +187,7 @@ func TestUnregisteredItShowsItsClaimCodeAndIsHealthy(t *testing.T) {
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"claimCode":"TEST-CLAIM"`) {
 		t.Fatalf("status: %d %s", w.Code, w.Body)
 	}
-	if w := call(t, h, "GET", "/.well-known/nexora-addon.json", ""); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"slug": "notif"`) && !strings.Contains(w.Body.String(), `"slug":"notif"`) {
+	if w := call(t, h, "GET", "/.well-known/nx-addon.json", ""); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"slug": "notif"`) && !strings.Contains(w.Body.String(), `"slug":"notif"`) {
 		t.Fatalf("manifest: %d %s", w.Code, w.Body)
 	}
 	if w := call(t, h, "GET", "/health", ""); w.Code != http.StatusOK {

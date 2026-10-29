@@ -1,4 +1,4 @@
-# The image the docker install pulls: ghcr.io/nexora-vpn/notif, for amd64 and
+# The image the docker install pulls: ghcr.io/nx-panel/notif, for amd64 and
 # arm64. release.yml runs this on every v* tag, once the manifest is checked
 # and before the release is created. Run it by hand from the Actions tab on a
 # tag to build that release's image again, or on a branch for a test image
@@ -25,7 +25,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/nexora-vpn/notif
+          images: ghcr.io/nx-panel/notif
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}

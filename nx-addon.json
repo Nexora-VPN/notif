@@ -6,7 +6,7 @@
     "ru": "Сообщает пользователям об аккаунтах — срок, трафик, продление и ваши сообщения — через Telegram, Bale, SMS, email или HTTP API.",
     "zh": "向用户通知其账户——到期、流量、续期以及您自己的消息——通过 Telegram、Bale、短信、电子邮件或任意 HTTP API，经由第一个能送达的渠道。"
   },
-  "docs": "https://github.com/Nexora-VPN/notif",
+  "docs": "https://github.com/nx-panel/notif",
   "events": [
     "panel.addon_removed",
     "panel.restore_applied",
@@ -31,7 +31,7 @@
     },
     "docker": {
       "compose": "deploy/compose.yml",
-      "image": "ghcr.io/nexora-vpn/notif"
+      "image": "ghcr.io/nx-panel/notif"
     },
     "options": [
       {
@@ -177,8 +177,8 @@
     ]
   },
   "license": "AGPL-3.0",
-  "name": "Nexora Notif",
-  "publisher": "Nexora",
+  "name": "NX Notif",
+  "publisher": "NX",
   "requires": {
     "panel": "\u003e=0.0.3"
   },
@@ -192,10 +192,10 @@
       "scope": "users:write"
     }
   ],
-  "setup": "/nexora/setup",
-  "signature": "qM1drb/tDrnUpZvD8UbzkYQ/9MYcDTXGK4qQqMm3Ett44iO6BUc3YHBswRHJ+qFR54IsSUjNtQgP7Te0nJH3Cw==",
+  "setup": "/nx/setup",
+  "signature": "OA/CplZnJuqHxmfpPweJvDPCsuor39sg3iEFdSW9zx63hpYF5Q8ZpULR/6FDIhwI5RLwakiajRLyLR2hdmXYDA==",
   "slug": "notif",
   "ui": "/",
-  "version": "0.3.1",
-  "webhook": "/nexora/events"
+  "version": "0.4.0",
+  "webhook": "/nx/events"
 }

@@ -1,5 +1,5 @@
-// Command notif is Nexora Notif, the official open addon that tells a
-// panel's users about their accounts (nexora-panel docs/phase-g.md, track
+// Command notif is NX Notif, the official open addon that tells a
+// panel's users about their accounts (nx-panel docs/phase-g.md, track
 // GN): the configuration, the database (SQLite, or PostgreSQL by the
 // install's choice), its own admins with a TOTP second factor, the manifest,
 // the claim-code registration and the health path, the copy of the panel's
@@ -12,11 +12,11 @@
 //	notif version
 //
 // Configuration comes from the environment, the way the install passes it
-// (internal/config): NEXORA_OPT_PORT, NEXORA_OPT_DATABASE (sqlite|postgres),
-// NEXORA_OPT_DATABASE_DSN, NEXORA_OPT_ADMIN_USERNAME, NEXORA_OPT_ADMIN_PASSWORD,
-// NEXORA_OPT_BASE_PATH (everything is served under it),
-// NEXORA_OPT_PUBLIC_URL and NEXORA_OPT_HTTPS (off, acme, self-signed),
-// NEXORA_CLAIM_CODE, NEXORA_DATA_DIR, NEXORA_MANIFEST_FILE.
+// (internal/config): NX_OPT_PORT, NX_OPT_DATABASE (sqlite|postgres),
+// NX_OPT_DATABASE_DSN, NX_OPT_ADMIN_USERNAME, NX_OPT_ADMIN_PASSWORD,
+// NX_OPT_BASE_PATH (everything is served under it),
+// NX_OPT_PUBLIC_URL and NX_OPT_HTTPS (off, acme, self-signed),
+// NX_CLAIM_CODE, NX_DATA_DIR, NX_MANIFEST_FILE.
 package main
 
 import (
@@ -39,21 +39,21 @@ import (
 	// may have none, and the quiet hours and dates are counted in a zone.
 	_ "time/tzdata"
 
-	"github.com/nexora-vpn/addon-kit/addon"
-	"github.com/nexora-vpn/notif/frontend"
-	"github.com/nexora-vpn/notif/internal/admins"
-	"github.com/nexora-vpn/notif/internal/api"
-	"github.com/nexora-vpn/notif/internal/backup"
-	"github.com/nexora-vpn/notif/internal/channel"
-	"github.com/nexora-vpn/notif/internal/config"
-	"github.com/nexora-vpn/notif/internal/db"
-	"github.com/nexora-vpn/notif/internal/outbox"
+	"github.com/nx-panel/addon-kit/addon"
+	"github.com/nx-panel/notif/frontend"
+	"github.com/nx-panel/notif/internal/admins"
+	"github.com/nx-panel/notif/internal/api"
+	"github.com/nx-panel/notif/internal/backup"
+	"github.com/nx-panel/notif/internal/channel"
+	"github.com/nx-panel/notif/internal/config"
+	"github.com/nx-panel/notif/internal/db"
+	"github.com/nx-panel/notif/internal/outbox"
 )
 
 // The manifest at the repository's root is the one built in; a release
 // signs it before the tag, so the binary serves the signed copy.
 //
-//go:embed nexora-addon.json
+//go:embed nx-addon.json
 var builtinManifest []byte
 
 func main() {
@@ -106,7 +106,7 @@ func run() error {
 	raw := builtinManifest
 	if cfg.ManifestFile != "" {
 		if raw, err = os.ReadFile(cfg.ManifestFile); err != nil {
-			return fmt.Errorf("NEXORA_MANIFEST_FILE: %w", err)
+			return fmt.Errorf("NX_MANIFEST_FILE: %w", err)
 		}
 	}
 	a, err := addon.New(addon.Config{Manifest: raw, DataDir: cfg.DataDir, Healthy: api.Healthy(gdb)}.FromEnv())
@@ -168,7 +168,7 @@ func run() error {
 	if cfg.BasePath != "" {
 		where = "under " + cfg.BasePath + "/"
 	}
-	log.Printf("nexora notif %s on :%s (%s), %s", a.Manifest().Version, cfg.Port, cfg.Driver, where)
+	log.Printf("nx notif %s on :%s (%s), %s", a.Manifest().Version, cfg.Port, cfg.Driver, where)
 	// With HTTPS on, the port is the HTTPS one and nothing plain listens
 	// (P9); an older install keeps HTTPS beside it.
 	httpsCtx, stopHTTPS := context.WithCancel(context.Background())

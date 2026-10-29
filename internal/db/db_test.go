@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nexora-vpn/notif/internal/channel"
-	"github.com/nexora-vpn/notif/internal/config"
-	"github.com/nexora-vpn/notif/internal/model"
+	"github.com/nx-panel/notif/internal/channel"
+	"github.com/nx-panel/notif/internal/config"
+	"github.com/nx-panel/notif/internal/model"
 )
 
 // TestTheStoredLinksGo: a database of Notif 0.1.0 kept every

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nexora-vpn/notif/internal/config"
-	"github.com/nexora-vpn/notif/internal/db"
-	"github.com/nexora-vpn/notif/internal/model"
+	"github.com/nx-panel/notif/internal/config"
+	"github.com/nx-panel/notif/internal/db"
+	"github.com/nx-panel/notif/internal/model"
 )
 
 // TestACopyAndBack: the daily copy is taken once a day and seven are kept;

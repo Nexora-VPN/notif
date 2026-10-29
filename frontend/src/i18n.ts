@@ -4,7 +4,7 @@ import { createI18n } from 'vue-i18n'
 // message: vue-i18n reads them as linked messages and plurals.
 
 const en = {
-  app: { name: 'Nexora Notif', tagline: 'Notices to your users' },
+  app: { name: 'NX Notif', tagline: 'Notices to your users' },
   nav: {
     dashboard: 'Dashboard',
     security: 'Security',
@@ -542,7 +542,7 @@ const en = {
 type Messages = typeof en
 
 const fa: Messages = {
-  app: { name: 'نکسورا نوتیف', tagline: 'اطلاع‌رسانی به کاربران' },
+  app: { name: 'انیکس نوتیف', tagline: 'اطلاع‌رسانی به کاربران' },
   nav: {
     dashboard: 'داشبورد',
     security: 'امنیت',
@@ -1079,7 +1079,7 @@ const fa: Messages = {
 }
 
 const ru: Messages = {
-  app: { name: 'Nexora Notif', tagline: 'Уведомления пользователям' },
+  app: { name: 'NX Notif', tagline: 'Уведомления пользователям' },
   nav: {
     dashboard: 'Обзор',
     security: 'Безопасность',
@@ -1618,7 +1618,7 @@ const ru: Messages = {
 }
 
 const zh: Messages = {
-  app: { name: 'Nexora Notif', tagline: '向用户发送通知' },
+  app: { name: 'NX Notif', tagline: '向用户发送通知' },
   nav: {
     dashboard: '概览',
     security: '安全',

@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nexora-vpn/notif/internal/channel"
-	"github.com/nexora-vpn/notif/internal/model"
+	"github.com/nx-panel/notif/internal/channel"
+	"github.com/nx-panel/notif/internal/model"
 )
 
 // The admin's view of the accounts as Notif knows them (GN-S2): who is

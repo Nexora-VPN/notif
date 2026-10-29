@@ -25,10 +25,10 @@ jobs:
         run: go test -race -count=1 ./...
       - name: tests on PostgreSQL
         env:
-          NEXORA_TEST_POSTGRES_DSN: postgres://postgres:notif@localhost:5432/notif?sslmode=disable
+          NX_TEST_POSTGRES_DSN: postgres://postgres:notif@localhost:5432/notif?sslmode=disable
         run: go test -race -count=1 -p 1 ./...
       - name: the manifest is one a panel accepts
-        run: go run github.com/nexora-vpn/addon-kit/cmd/nexora-addon check nexora-addon.json
+        run: go run github.com/nx-panel/addon-kit/cmd/nx-addon check nx-addon.json
       - run: sh -n install.sh && sh -n scripts/sign.sh
   web:
     runs-on: ubicloud-standard-2
