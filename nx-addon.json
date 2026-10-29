@@ -180,7 +180,7 @@
   "name": "NX Notif",
   "publisher": "NX",
   "requires": {
-    "panel": "\u003e=0.0.3"
+    "panel": "\u003e=0.1.0"
   },
   "scopes": [
     {
@@ -193,7 +193,7 @@
     }
   ],
   "setup": "/nx/setup",
-  "signature": "OA/CplZnJuqHxmfpPweJvDPCsuor39sg3iEFdSW9zx63hpYF5Q8ZpULR/6FDIhwI5RLwakiajRLyLR2hdmXYDA==",
+  "signature": "m5YsvAix2PE3IoDUHtvN8Tin5v93Hn8UqrBSwoQmUd+XeCnMgn35IKS6Igrq+TSCA6dWL9WJJuXfeWEGRmrCAA==",
   "slug": "notif",
   "ui": "/",
   "version": "0.4.0",
