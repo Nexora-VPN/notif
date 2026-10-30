@@ -193,9 +193,9 @@
     }
   ],
   "setup": "/nx/setup",
-  "signature": "m5YsvAix2PE3IoDUHtvN8Tin5v93Hn8UqrBSwoQmUd+XeCnMgn35IKS6Igrq+TSCA6dWL9WJJuXfeWEGRmrCAA==",
+  "signature": "Ctz9ArVQW3EMeMzQhQmYQJXjvHY52bJo3XWC7G+xImJsmkVWZWGNtcOdcFkxRm9DTGJrCzGycevcoDtXkeCXAg==",
   "slug": "notif",
   "ui": "/",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "webhook": "/nx/events"
 }
