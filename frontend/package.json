@@ -22,11 +22,11 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.10",
-    "oxfmt": "^0.74.0",
-    "oxlint": "^1.89.0",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
     "typescript": "^6.0.3",
     "vite": "^8.3.5",
-    "vue-tsc": "^3.3.13"
+    "vue-tsc": "^3.3.14"
   },
   "engines": {
     "node": ">=26"
